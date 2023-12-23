@@ -10,13 +10,13 @@ using namespace std;
 int main(int argc, char **argv)
 {
    PetscInitialize(&argc, &argv, PETSC_NULL, PETSC_NULL);
-   
+
    // Load Gmsh script and generate mesh
    gmsh::initialize();
-   gmsh::merge("example.geo");
+   gmsh::merge("geometry/example.geo");
    gmsh::model::geo::synchronize();
    gmsh::model::mesh::generate(2);
-   gmsh::write("example.msh");
+   gmsh::write("geometry/example.msh");
    gmsh::finalize();
 
    PetscInt n = 5;

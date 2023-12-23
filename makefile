@@ -1,18 +1,25 @@
-SOURCES = $(wildcard /home/savan/projects/petscInit/*.cpp)
-OBJECTS = $(SOURCES:.cpp=.o)
-EXECUTABLE = main
+SRCDIR = src
+OUTDIR = build
+
+SOURCES = $(wildcard $(SRCDIR)/*.cpp)
+OBJECTS = $(patsubst $(SRCDIR)/%.cpp,$(OUTDIR)/%.o,$(SOURCES))
+TARGET = $(OUTDIR)/main
+
 
 CXX = /usr/bin/mpic++
 CXXFLAGS = -fdiagnostics-color=always -g -I/usr/include/petsc -I/usr/include
 LDFLAGS = -L/usr/lib -lpetsc -lstdc++ -lgmsh
 
-all: $(EXECUTABLE)
+all: directories $(TARGET)
 
-$(EXECUTABLE): $(OBJECTS)
+directories:
+	@mkdir -p $(OUTDIR)
+
+$(TARGET): $(OBJECTS)
 	$(CXX) $(CXXFLAGS) -o $@ $^ $(LDFLAGS)
 
-%.o: %.cpp
+$(OUTDIR)/%.o: $(SRCDIR)/%.cpp
 	$(CXX) $(CXXFLAGS) -c $< -o $@
 
 clean:
-	rm -f $(EXECUTABLE) $(OBJECTS)
+	rm -rf $(OUTDIR)
