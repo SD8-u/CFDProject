@@ -2,6 +2,7 @@
 #include <vector>
 #include <string>
 #include <petsc.h>
+#include <gmsh.h>
 
 using namespace std;
 
@@ -9,6 +10,14 @@ using namespace std;
 int main(int argc, char **argv)
 {
    PetscInitialize(&argc, &argv, PETSC_NULL, PETSC_NULL);
+
+   // Load Gmsh script and generate mesh
+   gmsh::initialize();
+   gmsh::merge("example.geo");
+   gmsh::model::geo::synchronize();
+   gmsh::model::mesh::generate(2);
+   gmsh::write("example.msh");
+   gmsh::finalize();
 
    PetscInt n = 5;
    Vec x;

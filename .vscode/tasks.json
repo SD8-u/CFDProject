@@ -8,13 +8,15 @@
             "args": [
                 "-fdiagnostics-color=always",
                 "-g",
-                "/home/savan/projects/helloworld/*.cpp",
+                "/home/savan/projects/petscInit/*.cpp",
                 "-o",
-                "/home/savan/projects/helloworld/main",
+                "/home/savan/projects/petscInit/main",
                 "-I/usr/include/petsc",
+                "-I/usr/include",
                 "-L/usr/lib",
                 "-lpetsc",
-                "-lstdc++"  // Add the C++ standard library
+                "-lstdc++",  // Add the C++ standard library
+                "-lgmsh"
             ],
             "group": {
                 "kind": "build",
