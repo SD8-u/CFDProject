@@ -1,0 +1,3 @@
+import MeshExtension
+
+MeshExtension.generateMesh()

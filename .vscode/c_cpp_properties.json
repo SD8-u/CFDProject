@@ -6,7 +6,9 @@
                 "${workspaceFolder}/**",
                 "/usr/include",
                 "/usr/include/petsc",
-                "/usr/lib/x86_64-linux-gnu/openmpi/include"
+                "/usr/lib/x86_64-linux-gnu/openmpi/include",
+                "${workspaceFolder}/venv/lib/python3.10/site-packages/pybind11/include",
+                "/usr/include/python3.10"
             ],
             "defines": [],
             "compilerPath": "/usr/bin/gcc",
