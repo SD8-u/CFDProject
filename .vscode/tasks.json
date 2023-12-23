@@ -1,0 +1,25 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "build",
+            "type": "shell",
+            "command": "/usr/bin/mpic++",  // Use mpic++ for C++ code
+            "args": [
+                "-fdiagnostics-color=always",
+                "-g",
+                "/home/savan/projects/helloworld/*.cpp",
+                "-o",
+                "/home/savan/projects/helloworld/main",
+                "-I/usr/include/petsc",
+                "-L/usr/lib",
+                "-lpetsc",
+                "-lstdc++"  // Add the C++ standard library
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
+        }
+    ]
+}
