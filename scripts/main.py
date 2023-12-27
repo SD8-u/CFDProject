@@ -1,3 +1,3 @@
 import MeshExtension
 
-MeshExtension.generateMesh()
+MeshExtension.generateMesh(5)

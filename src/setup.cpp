@@ -7,12 +7,17 @@
 
 using namespace std;
 
-// Load Gmsh script and generate mesh
-void generateMesh(){
+// Load Gmsh script and generate square mesh
+void generateMesh(int refinement){
    gmsh::initialize();
    gmsh::merge("geometry/example.geo");
    gmsh::model::geo::synchronize();
    gmsh::model::mesh::generate(2);
+
+   //Refine mesh uniformally
+   for(int x = 0; x < refinement; x++)
+      gmsh::model::mesh::refine();
+      
    gmsh::write("geometry/example.msh");
    gmsh::finalize();
 }
@@ -24,6 +29,7 @@ PYBIND11_MODULE(MeshExtension, m) {
 //Basic Petsc Code
 int main(int argc, char **argv)
 {
+   generateMesh(5);
    PetscInitialize(&argc, &argv, PETSC_NULL, PETSC_NULL);
 
    PetscInt n = 5;

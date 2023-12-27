@@ -1,4 +1,8 @@
-// example.geo
+//Specify mesh generation properties
+Mesh.ElementOrder = 1;  //2D Triangles
+Mesh.Algorithm = 5; //Delaunay Triangulation
+
+//Define simple square boundary
 Point(1) = {0, 0, 0, 1.0};
 Point(2) = {1, 0, 0, 1.0};
 Point(3) = {1, 1, 0, 1.0};
@@ -9,6 +13,8 @@ Line(2) = {2, 3};
 Line(3) = {3, 4};
 Line(4) = {4, 1};
 
-Curve Loop(1) = {1, 2, 3, 4};
+Line Loop(5) = {1, 2, 3, 4};
+Plane Surface(6) = {5};
 
-Plane Surface(1) = {1};
+// Tag fluid domain insisde of square
+Physical Surface("FluidDomain") = {6};
