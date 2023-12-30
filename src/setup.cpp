@@ -3,6 +3,7 @@
 #include <string>
 #include <petsc.h>
 #include <gmsh.h>
+#include <mesh.cpp>
 #include <pybind11/pybind11.h>
 
 using namespace std;
@@ -14,12 +15,14 @@ void generateMesh(int refinement){
    gmsh::model::geo::synchronize();
    gmsh::model::mesh::generate(2);
 
-   //Refine mesh uniformally
+   //Refine mesh uniformly
    for(int x = 0; x < refinement; x++)
       gmsh::model::mesh::refine();
-      
+
    gmsh::write("geometry/example.msh");
    gmsh::finalize();
+
+   Mesh *msh = new Mesh("geometry/example.msh");
 }
 
 PYBIND11_MODULE(MeshExtension, m) {
@@ -29,7 +32,7 @@ PYBIND11_MODULE(MeshExtension, m) {
 //Basic Petsc Code
 int main(int argc, char **argv)
 {
-   generateMesh(5);
+   generateMesh(4);
    PetscInitialize(&argc, &argv, PETSC_NULL, PETSC_NULL);
 
    PetscInt n = 5;
