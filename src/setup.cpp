@@ -18,6 +18,9 @@ void generateMesh(int refinement){
    //Refine mesh uniformly
    for(int x = 0; x < refinement; x++)
       gmsh::model::mesh::refine();
+   
+   //Construct quadratic triangle elements
+   gmsh::model::mesh::setOrder(2);
 
    gmsh::write("geometry/example.msh");
    gmsh::finalize();
