@@ -3,14 +3,13 @@
 #include <string>
 #include <petsc.h>
 #include <gmsh.h>
-#include <mesh.cpp>
+#include <compute.hpp>
 #include <pybind11/pybind11.h>
 
 using namespace std;
 
 // Load Gmsh script and generate square mesh
-void generateMesh(int refinement){
-   gmsh::initialize();
+Mesh* generateMesh(int refinement){
    gmsh::merge("geometry/example.geo");
    gmsh::model::geo::synchronize();
    gmsh::model::mesh::generate(2);
@@ -23,20 +22,28 @@ void generateMesh(int refinement){
    gmsh::model::mesh::setOrder(2);
 
    gmsh::write("geometry/example.msh");
-   gmsh::finalize();
 
-   Mesh *msh = new Mesh("geometry/example.msh");
+   return new Mesh("geometry/example.msh");
+}
+
+void computeFlow(int refinement){
+   gmsh::initialize();
+
+   Mesh *msh = generateMesh(refinement);
+   computeMassMatrix(msh->elementTags[0][0]);
+
+   gmsh::finalize();
 }
 
 PYBIND11_MODULE(MeshExtension, m) {
-    m.def("generateMesh", &generateMesh, "A function to generate a basic mesh");
+    m.def("computeFlow", &computeFlow, "A function to compute flow");
 }
 
 //Basic Petsc Code
 int main(int argc, char **argv)
 {
-   generateMesh(4);
    PetscInitialize(&argc, &argv, PETSC_NULL, PETSC_NULL);
+   computeFlow(1);
 
    PetscInt n = 5;
    Vec x;

@@ -1,3 +1,3 @@
 import MeshExtension
 
-MeshExtension.generateMesh(5)
+MeshExtension.computeFlow(5)
