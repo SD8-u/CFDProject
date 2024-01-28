@@ -20,9 +20,9 @@ struct Node {
 class Mesh {
     private:
         map<size_t, Node> nodes;
-        vector<vector<size_t>> elements;
     public:
         int elementSize;
         vector<vector<size_t>> elementTags;
+        vector<vector<size_t>> elements;
         Mesh(string filePath);
 };

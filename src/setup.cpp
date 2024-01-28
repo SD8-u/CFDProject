@@ -31,7 +31,9 @@ void computeFlow(int refinement){
 
    Mesh *msh = generateMesh(refinement);
    computeMassMatrix(msh->elementTags[0][0]);
-
+   computeMassMatrix(msh->elementTags[0][100]);
+   computeViscosityMatrix(msh->elementTags[0][100]);
+   gmsh::fltk::run();
    gmsh::finalize();
 }
 
@@ -43,7 +45,7 @@ PYBIND11_MODULE(MeshExtension, m) {
 int main(int argc, char **argv)
 {
    PetscInitialize(&argc, &argv, PETSC_NULL, PETSC_NULL);
-   computeFlow(1);
+   computeFlow(3);
 
    PetscInt n = 5;
    Vec x;

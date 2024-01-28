@@ -7,3 +7,4 @@
 using namespace std;
 
 Mat computeMassMatrix(size_t elementTag);
+Mat computeViscosityMatrix(size_t elementTag);
