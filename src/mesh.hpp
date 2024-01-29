@@ -1,4 +1,5 @@
 #include <gmsh.h>
+#include <petsc.h>
 #include <vector>
 #include <string>
 #include <map>
@@ -23,6 +24,8 @@ class Mesh {
     public:
         int elementSize;
         vector<vector<size_t>> elementTags;
-        vector<vector<size_t>> elements;
+        map<size_t, vector<size_t>> elements;
         Mesh(string filePath);
+        void getElementVector(size_t element, PetscScalar* elemVec, bool pressure);
+        void getForceVector(size_t element, PetscScalar* force);
 };

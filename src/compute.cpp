@@ -17,6 +17,38 @@ void getIntegrationPoints(int type, vector<double> &gaussPoints, vector<double> 
     }
 }
 
+vector<Mat> getBasisMatrix(vector<double> gaussPoints, vector<double> basisFuncs){
+    vector<Mat> basisMats = vector<Mat>(basisFuncs.size()/6);
+    int m = 0;
+    for(int point = 0; point < basisFuncs.size(); point+=6){
+        
+        MatCreate(PETSC_COMM_WORLD, &basisMats[m]);
+        MatSetSizes(basisMats[m], PETSC_DECIDE, PETSC_DECIDE, 12, 2);
+        MatSetFromOptions(basisMats[m]);
+        MatSetUp(basisMats[m]);
+
+        for(int i = 0; i < 12; i++){
+            for(int j = 0; j < 2; j++){
+                if(j == 0 && i < 6){
+                    MatSetValue(basisMats[m], i, j, basisFuncs[m * 6 + i], INSERT_VALUES);
+                }
+                else if(j == 1 && i > 5){
+                    MatSetValue(basisMats[m], i, j, basisFuncs[m * 6 + (i - 6)], INSERT_VALUES);
+                }
+                else{
+                    MatSetValue(basisMats[m], i, j, 0, INSERT_VALUES);
+                }
+            }
+        }
+
+        MatAssemblyBegin(basisMats[m], MAT_FINAL_ASSEMBLY);
+        MatAssemblyEnd(basisMats[m], MAT_FINAL_ASSEMBLY);
+        m++;
+    }
+
+    return basisMats;
+}
+
 
 vector<Mat> computeInverseJacobian(vector<double> j, vector<double> dets){
     //Inverse jacobian matrix for each integration point
@@ -71,16 +103,12 @@ vector<Mat> computeBasisGradMatrix(vector<double> basisFuncsGrad, vector<double>
             MatAssemblyBegin(temp, MAT_FINAL_ASSEMBLY);
             MatAssemblyEnd(temp, MAT_FINAL_ASSEMBLY);
 
-            MatView(temp, PETSC_VIEWER_STDOUT_WORLD);
-
             //Perform conversion from local coordinates to physical via inverse jacobian
             MatMatMult(inverseJacob[m], temp, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &basisGradMat[m]);
 
             MatDestroy(&temp);
             MatAssemblyBegin(basisGradMat[m], MAT_FINAL_ASSEMBLY);
             MatAssemblyEnd(basisGradMat[m], MAT_FINAL_ASSEMBLY);
-
-            MatView(basisGradMat[m], PETSC_VIEWER_STDOUT_WORLD);
 
         m++;
     }
@@ -198,7 +226,165 @@ Mat computeViscosityMatrix(size_t elementTag){
 
     // Print the viscosity matrix
     MatView(viscosityMatrix, PETSC_VIEWER_STDOUT_WORLD);
-    MatDestroy(&viscosityMatrix);
 
     return viscosityMatrix;
+}
+
+Mat computeConvectionMatrix(PetscScalar* elemVec, size_t elementTag){
+    vector<double> coords;
+    vector<double> gaussPoints;
+    vector<double> gaussWeights;
+    vector<double> basisFuncs;
+    vector<double> basisFuncsGrad;
+    vector<double> j;
+    vector<double> jdets;
+    int nComponents;
+    int nOrientations;
+
+    //Initialise Convection Matrix (components are the integrals of basis functions * velocity gradient)
+    Mat convectionMatrix;
+    MatCreate(PETSC_COMM_WORLD, &convectionMatrix);
+    MatSetSizes(convectionMatrix, PETSC_DECIDE, PETSC_DECIDE, 12, 12);
+    MatSetFromOptions(convectionMatrix);
+    MatSetUp(convectionMatrix);
+
+    getIntegrationPoints(2, gaussPoints, gaussWeights);
+
+    gmsh::model::mesh::getBasisFunctions(9, gaussPoints, "Lagrange", nComponents, basisFuncs, nOrientations);
+    gmsh::model::mesh::getBasisFunctions(9, gaussPoints, "GradLagrange", nComponents, basisFuncsGrad, nOrientations);
+    gmsh::model::mesh::getJacobian(elementTag, gaussPoints, j, jdets, coords);
+
+    vector<Mat> basisMats = getBasisMatrix(gaussPoints, basisFuncs);
+    vector<Mat> basisGradMats = computeBasisGradMatrix(basisFuncsGrad, j, jdets);
+    vector<Mat> convMats = vector<Mat>(basisMats.size());
+
+    for(int m = 0; m < basisMats.size(); m++){
+        MatMatMult(basisMats[m], basisGradMats[m], MAT_INITIAL_MATRIX, PETSC_DEFAULT, &convMats[m]);
+    }
+
+    for(int i = 0; i < 12; i++){
+        for(int j = 0; j < 12; j++){
+            PetscScalar convVal = 0.0;
+            int w = 0;
+            //Approximate integration using gauss points
+            for(int gp = 0; gp < 36; gp+=6){
+                PetscScalar matVal;
+                MatGetValue(convMats[w], i, j, &matVal);
+                convVal +=  matVal * elemVec[j] * gaussWeights[w] * jdets[w++];
+            }
+            MatSetValue(convectionMatrix, i, j, convVal, INSERT_VALUES);
+        }
+    }
+
+    MatAssemblyBegin(convectionMatrix, MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(convectionMatrix, MAT_FINAL_ASSEMBLY);
+
+    // Print the convection matrix
+    MatView(convectionMatrix, PETSC_VIEWER_STDOUT_WORLD);
+
+    return convectionMatrix;
+}
+
+Mat computeGradientMatrix(size_t elementTag){
+    vector<double> coords;
+    vector<double> gaussPoints;
+    vector<double> gaussWeights;
+    vector<double> basisPres;
+    vector<double> basisGradVelo;
+    vector<double> j;
+    vector<double> jdets;
+    int nComponents;
+    int nOrientations;
+
+    //Initialise Gradient Matrix (components are the integrals of veloc basis grad * pressure basis)
+    Mat gradientMatrix;
+    MatCreate(PETSC_COMM_WORLD, &gradientMatrix);
+    MatSetSizes(gradientMatrix, PETSC_DECIDE, PETSC_DECIDE, 12, 3);
+    MatSetFromOptions(gradientMatrix);
+    MatSetUp(gradientMatrix);
+
+    getIntegrationPoints(2, gaussPoints, gaussWeights);
+
+    gmsh::model::mesh::getBasisFunctions(2, gaussPoints, "Lagrange", nComponents, basisPres, nOrientations);
+    gmsh::model::mesh::getBasisFunctions(9, gaussPoints, "GradLagrange", nComponents, basisGradVelo, nOrientations);
+    gmsh::model::mesh::getJacobian(elementTag, gaussPoints, j, jdets, coords);
+
+    for(int i = 0; i < 3; i++){
+        for(int j = 0; j < 12; j++){
+            int w = 0;
+            PetscScalar gradVal = 0.0;
+            int x2 = (j > 5);
+            for(int gp = 0; gp < 36; gp+=6){
+                gradVal += basisPres[gp + i] * basisGradVelo[gp * 3 + j * 3 + x2] * gaussWeights[w] * jdets[w++];
+            }
+            MatSetValue(gradientMatrix, j, i, gradVal, INSERT_VALUES);
+        }
+    }
+
+    MatAssemblyBegin(gradientMatrix, MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(gradientMatrix, MAT_FINAL_ASSEMBLY);
+
+    // Print the gradient matrix
+    MatView(gradientMatrix, PETSC_VIEWER_STDOUT_WORLD);
+
+    return gradientMatrix;
+}
+
+Vec computeFirstStep(Mesh *msh, size_t elementTag){
+    double dt = 0.001;
+
+    PetscScalar forceArr[12]; 
+    msh->getForceVector(elementTag, forceArr);
+    PetscScalar velVec[12];
+    msh->getElementVector(elementTag, velVec, false);
+
+    Mat massMat = computeMassMatrix(elementTag);
+    Mat viscMat = computeViscosityMatrix(elementTag);
+    Mat convMat = computeConvectionMatrix(velVec, elementTag);
+
+    MatAXPY(convMat, 1.0, viscMat, SAME_NONZERO_PATTERN);
+
+    Vec vint;
+    Vec f;
+    Vec v;
+    Vec t;
+
+    VecCreate(PETSC_COMM_WORLD, &vint);
+    VecCreate(PETSC_COMM_WORLD, &f);
+    VecCreate(PETSC_COMM_WORLD, &v);
+    VecCreate(PETSC_COMM_WORLD, &t);
+    VecSetSizes(vint, PETSC_DECIDE, 12);
+    VecSetSizes(f, PETSC_DECIDE, 12);
+    VecSetSizes(v, PETSC_DECIDE, 12);
+    VecSetSizes(t, PETSC_DECIDE, 12);
+    VecSetFromOptions(vint);
+    VecSetFromOptions(f);
+    VecSetFromOptions(v);
+    VecSetFromOptions(t);
+
+    PetscInt indices[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+    VecSetValues(f, 12, indices, forceArr, INSERT_VALUES);
+    VecSetValues(v, 12, indices, velVec, INSERT_VALUES);
+    VecAssemblyBegin(f);
+    VecAssemblyEnd(f);
+    VecAssemblyBegin(v);
+    VecAssemblyEnd(v);
+
+    VecScale(v, 1/dt);
+    MatMult(massMat, v, t);
+    MatAYPX(massMat, 1/dt, convMat, SAME_NONZERO_PATTERN);
+    VecAXPY(f, 1.0, t);
+
+    KSP solver;
+    KSPCreate(PETSC_COMM_WORLD, &solver);
+    KSPSetOperators(solver, massMat, massMat);
+    KSPSetType(solver, KSPGMRES);
+    KSPSetFromOptions(solver);
+
+    KSPSolve(solver, f, vint);
+
+    cout << "First Step Solution: \n";
+    VecView(vint, PETSC_VIEWER_STDOUT_WORLD);
+
+    return vint;
 }
