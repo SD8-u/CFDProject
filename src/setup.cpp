@@ -30,10 +30,8 @@ void computeFlow(int refinement){
    gmsh::initialize();
 
    Mesh *msh = generateMesh(refinement);
-
+   
    Vec vint = computeFirstStep(msh, msh->elementTags[0][100]);
-
-   computeGradientMatrix(msh->elementTags[0][100]);
 
    gmsh::fltk::run();
    gmsh::finalize();
