@@ -31,11 +31,10 @@ void computeFlow(int refinement){
    gmsh::initialize();
 
    Mesh *msh = generateMesh(refinement);
-   
-   //Vec vint = computeFirstStep(msh, msh->elementTags[0][100]);
 
    Solver* solver = new Solver(msh);
    solver->assembleMatrices();
+   solver->computeTimeStep();
 
    gmsh::fltk::run();
    gmsh::finalize();

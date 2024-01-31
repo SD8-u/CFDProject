@@ -406,7 +406,7 @@ Vec computeFirstStep(Mesh *msh, size_t elementTag){
         Mat viscMat = computeViscosityMatrix(elementTag);
         Mat convMat = computeConvectionMatrix(elementTag);
 
-        MatAXPY(convMat, 1.0, viscMat, SAME_NONZERO_PATTERN);
+        MatAXPY(convMat, 1.0, viscMat, DIFFERENT_NONZERO_PATTERN);
 
         Vec vint;
         Vec f;
@@ -436,7 +436,7 @@ Vec computeFirstStep(Mesh *msh, size_t elementTag){
 
         VecScale(v, 1/dt);
         MatMult(massMat, v, t);
-        MatAXPY(convMat, 1/dt, massMat, SAME_NONZERO_PATTERN);
+        MatAXPY(convMat, 1/dt, massMat, DIFFERENT_NONZERO_PATTERN);
         VecAXPY(f, 1.0, t);
 
         KSP solver;

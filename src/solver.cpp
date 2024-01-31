@@ -33,23 +33,44 @@ Solver::Solver(Mesh* msh){
     MatZeroEntries(globalViscMat);
     MatZeroEntries(globalConvMat);
     MatZeroEntries(globalFullMat);
+
+    VecCreate(PETSC_COMM_WORLD, &nodalVec);
+    VecSetSizes(nodalVec, PETSC_DECIDE, nNodes * 2);
+    VecSetFromOptions(nodalVec);
 }
 
-void Solver::localToGlobal(Mesh* msh, int type){
+void Solver::localToGlobalVec(){
+    for(size_t elementTag : msh->elementTags[0]){
+        for(int i = 0; i < 6; i++){
+            Node n = msh->nodes[msh->elements[elementTag][i]];
+            int x = n.id;
+            VecSetValue(nodalVec, x, n.velocity[0], INSERT_VALUES);
+            VecSetValue(nodalVec, x + nNodes, 1.0, INSERT_VALUES);
+            /*if(i < 3){
+                VecSetValue(nodalVec, x + 2 * nNodes, n.pressure, INSERT_VALUES);
+            }*/
+        }
+    }
+}
+
+void Solver::localToGlobalMat(int type){
     for(size_t elementTag : msh->elementTags[0]){
 
         Mat localMat;
-        Mat globalMat;
+        Mat* globalMat;
         switch(type){
             case 1:
                 localMat = computeMassMatrix(elementTag);
-                globalMat = globalMassMat;
+                globalMat = &globalMassMat;
+                break;
             case 2:
                 localMat = computeViscosityMatrix(elementTag);
-                globalMat = globalViscMat;
+                globalMat = &globalViscMat;
+                break;
             case 3:
                 localMat = computeConvectionMatrix(elementTag);
-                globalMat = globalConvMat;
+                globalMat = &globalConvMat;
+                break;
         }
         for(int i = 0; i < 12; i++){
             int x, y;
@@ -64,8 +85,12 @@ void Solver::localToGlobal(Mesh* msh, int type){
                 }
                 PetscScalar matVal;
 
-                MatGetValue(localMat, i, j, &matVal);
-                MatSetValue(globalMat, x, y, matVal, ADD_VALUES);
+                //if(!msh->nodes[msh->elements[elementTag][i % 6]].boundary &&
+                   //!msh->nodes[msh->elements[elementTag][j % 6]].boundary){
+                    MatGetValue(localMat, i, j, &matVal);
+                    MatSetValue(*globalMat, x, y, matVal, ADD_VALUES);
+                    //cout << matVal << "\n";
+                   //}
             }
         }
 
@@ -75,18 +100,74 @@ void Solver::localToGlobal(Mesh* msh, int type){
 
 void Solver::assembleMatrices(){
 
-    localToGlobal(msh, 1);
-    MatScale(globalMassMat, 1/0.0001);
-    
+    localToGlobalMat(1);
+    MatAssemblyBegin(globalMassMat, MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(globalMassMat, MAT_FINAL_ASSEMBLY);
+    MatScale(globalMassMat, 1/0.00001);
+
+    //MatView(globalMassMat, PETSC_VIEWER_STDOUT_WORLD);
+
+    localToGlobalMat(2);
     MatAssemblyBegin(globalViscMat, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(globalViscMat, MAT_FINAL_ASSEMBLY);
 
-    localToGlobal(msh, 2);
-    MatAssemblyBegin(globalViscMat, MAT_FINAL_ASSEMBLY);
-    MatAssemblyEnd(globalViscMat, MAT_FINAL_ASSEMBLY);
 
-
-    localToGlobal(msh, 3);
+    localToGlobalMat(3);
     MatAssemblyBegin(globalConvMat, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(globalConvMat, MAT_FINAL_ASSEMBLY);
+
+    localToGlobalVec();
+    VecAssemblyBegin(nodalVec);
+    VecAssemblyEnd(nodalVec);
+}
+
+void Solver::computeTimeStep(){
+    Mat tempMat;
+    Vec tempVec;
+    Vec vint;
+
+    MatCreate(PETSC_COMM_WORLD, &tempMat);
+    MatSetSizes(tempMat, PETSC_DECIDE, PETSC_DECIDE, 
+    nNodes * 2, nNodes * 2);
+    MatSetFromOptions(tempMat);
+    MatSetUp(tempMat);
+
+    VecCreate(PETSC_COMM_WORLD, &tempVec);
+    VecCreate(PETSC_COMM_WORLD, &vint);
+    VecSetSizes(tempVec, PETSC_DECIDE, nNodes * 2);
+    VecSetSizes(vint, PETSC_DECIDE, nNodes * 2);
+    VecSetFromOptions(tempVec);
+    VecSetFromOptions(vint);
+
+    for(int i = 0; i < nNodes * 2; i++){
+        for(int j = 0; j < nNodes * 2; j++){
+            PetscInt ind = j;
+            PetscScalar vecVal;
+            PetscScalar matVal;
+            VecGetValues(nodalVec, 1, &ind, &vecVal);
+            MatGetValue(globalConvMat, i, j, &matVal);
+            MatSetValue(tempMat, i, j, matVal * vecVal, INSERT_VALUES);
+        }
+    }
+
+    MatAssemblyBegin(tempMat, MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(tempMat, MAT_FINAL_ASSEMBLY);
+
+    MatAXPY(tempMat, 1.0, globalViscMat, DIFFERENT_NONZERO_PATTERN);
+    MatAXPY(tempMat, 1.0, globalMassMat, DIFFERENT_NONZERO_PATTERN);
+
+    MatMult(globalMassMat, nodalVec, tempVec);
+    VecAssemblyBegin(tempVec);
+    VecAssemblyEnd(tempVec);
+
+    KSP solver;
+    KSPCreate(PETSC_COMM_WORLD, &solver);
+    KSPSetOperators(solver, tempMat, tempMat);
+    KSPSetType(solver, KSPGMRES);
+    KSPSetFromOptions(solver);
+
+    KSPSolve(solver, tempVec, vint);
+
+    MatView(tempMat, PETSC_VIEWER_STDOUT_WORLD);
+    VecView(tempVec, PETSC_VIEWER_STDOUT_WORLD);
 }

@@ -21,7 +21,7 @@ Mesh::Mesh(string filePath){
     gmsh::model::mesh::getNodesForPhysicalGroup(2, inletTag, nodeTags, nodeCoords);
     for(int node = 0; node < nodeCoords.size()/3; node++){
         nodes[nodeTags[node]] = Node{nId++, false, true, 
-        {0}, {1, 0}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
+        {0}, {0, 1}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
     }
     
     //Retrieve fluid nodes
@@ -29,7 +29,7 @@ Mesh::Mesh(string filePath){
     gmsh::model::mesh::getNodesForPhysicalGroup(2, fluidTag, nodeTags, nodeCoords);
     for(int node = 0; node < nodeCoords.size()/3; node++){
         nodes[nodeTags[node]] = Node{nId++, false, false, 
-        {0}, {1, 0}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
+        {0}, {0, 0}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
     
     }
 
