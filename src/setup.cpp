@@ -4,6 +4,7 @@
 #include <petsc.h>
 #include <gmsh.h>
 #include <compute.hpp>
+#include <solver.hpp>
 #include <pybind11/pybind11.h>
 
 using namespace std;
@@ -31,7 +32,10 @@ void computeFlow(int refinement){
 
    Mesh *msh = generateMesh(refinement);
    
-   Vec vint = computeFirstStep(msh, msh->elementTags[0][100]);
+   //Vec vint = computeFirstStep(msh, msh->elementTags[0][100]);
+
+   Solver* solver = new Solver(msh);
+   solver->assembleMatrices();
 
    gmsh::fltk::run();
    gmsh::finalize();
@@ -45,7 +49,7 @@ PYBIND11_MODULE(MeshExtension, m) {
 int main(int argc, char **argv)
 {
    PetscInitialize(&argc, &argv, PETSC_NULL, PETSC_NULL);
-   computeFlow(3);
+   computeFlow(1);
 
    PetscInt n = 5;
    Vec x;

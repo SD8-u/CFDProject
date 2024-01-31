@@ -3,39 +3,43 @@
 Mesh::Mesh(string filePath){
     gmsh::open(filePath);
     
-    vector<size_t> nodeIds;
+    vector<size_t> nodeTags;
     vector<double> nodeCoords;
     vector<double> paramCoords;
+    int nId = 0;
     //Retreive nodes in boundary
     for(int boundaryTag = 2; boundaryTag < 5; boundaryTag++){
-        gmsh::model::mesh::getNodesForPhysicalGroup(2, boundaryTag, nodeIds, nodeCoords);
+        gmsh::model::mesh::getNodesForPhysicalGroup(2, boundaryTag, nodeTags, nodeCoords);
         for(int node = 0; node < nodeCoords.size()/3; node++){
-            nodes[nodeIds[node]] = Node{nodeIds[node], true, false, 
+            nodes[nodeTags[node]] = Node{nId++, true, false, 
             {0}, {0, 0}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
         }
     }
     
     //Retrieve nodes at inlet
     int inletTag = 1;
-    gmsh::model::mesh::getNodesForPhysicalGroup(2, inletTag, nodeIds, nodeCoords);
+    gmsh::model::mesh::getNodesForPhysicalGroup(2, inletTag, nodeTags, nodeCoords);
     for(int node = 0; node < nodeCoords.size()/3; node++){
-        nodes[nodeIds[node]] = Node{nodeIds[node], false, true, 
+        nodes[nodeTags[node]] = Node{nId++, false, true, 
         {0}, {1, 0}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
     }
     
     //Retrieve fluid nodes
-    gmsh::model::mesh::getNodes(nodeIds, nodeCoords, paramCoords, 2);
+    int fluidTag = 6;
+    gmsh::model::mesh::getNodesForPhysicalGroup(2, fluidTag, nodeTags, nodeCoords);
     for(int node = 0; node < nodeCoords.size()/3; node++){
-        nodes[nodeIds[node]] = Node{nodeIds[node], false, false, 
+        nodes[nodeTags[node]] = Node{nId++, false, false, 
         {0}, {1, 0}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
     
     }
+
+    cout << "nID: " << nId << "\n";
     
     //Encode element connectivity
     vector<int> elementTypes;
     vector<vector<size_t>> elementNodeTags;
     gmsh::model::mesh::getElements(elementTypes, elementTags, elementNodeTags, 2, -1);
-    //elements = vector<vector<size_t>>(elementTags[0].size());
+
     for(int element = 0; element < elementTags[0].size(); element++){
         int type;
         vector<size_t> nodeTags;

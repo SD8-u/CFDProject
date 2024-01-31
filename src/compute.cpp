@@ -230,7 +230,7 @@ Mat computeViscosityMatrix(size_t elementTag){
     return viscosityMatrix;
 }
 
-Mat computeConvectionMatrix(PetscScalar* elemVec, size_t elementTag){
+Mat computeConvectionMatrix(size_t elementTag){
     vector<double> coords;
     vector<double> gaussPoints;
     vector<double> gaussWeights;
@@ -270,7 +270,7 @@ Mat computeConvectionMatrix(PetscScalar* elemVec, size_t elementTag){
             for(int gp = 0; gp < 36; gp+=6){
                 PetscScalar matVal;
                 MatGetValue(convMats[w], i, j, &matVal);
-                convVal +=  ((matVal * elemVec[j]) + 0.5 * (matVal * elemVec[j])) * gaussWeights[w] * jdets[w++];
+                convVal +=  (matVal + 0.5 * matVal) * gaussWeights[w] * jdets[w++];
             }
             MatSetValue(convectionMatrix, i, j, convVal, INSERT_VALUES);
         }
@@ -334,6 +334,60 @@ Mat computeGradientMatrix(size_t elementTag){
     return gradientMatrix;
 }
 
+Mat computeFinalMatrix(size_t elementTag, Mat massMat){
+
+    Mat gradMat = computeGradientMatrix(elementTag);
+
+    //Initialise Final matrices
+    Mat finalMat;
+    Mat gradTMat;
+    MatCreate(PETSC_COMM_WORLD, &finalMat);
+    MatCreate(PETSC_COMM_WORLD, &gradTMat);
+    MatSetSizes(finalMat, PETSC_DECIDE, PETSC_DECIDE, 15, 15);
+    MatSetSizes(gradTMat, PETSC_DECIDE, PETSC_DECIDE, 3, 12);
+    MatSetFromOptions(finalMat);
+    MatSetFromOptions(gradTMat);
+    MatSetUp(finalMat);
+    MatSetUp(gradTMat);
+
+    MatTranspose(gradMat, MAT_INITIAL_MATRIX, &gradTMat);
+
+    for(int i = 0; i < 12; i++){
+        for(int j = 0; j < 12; j++){
+            PetscScalar matVal;
+            MatGetValue(massMat, i, j, &matVal);
+            MatSetValue(finalMat, i, j, matVal, INSERT_VALUES);
+        }
+    }
+
+    for(int i = 0; i < 12; i++){
+        for(int j = 12; j < 15; j++){
+            PetscScalar matVal;
+            MatGetValue(gradMat, i, j - 12, &matVal);
+            MatSetValue(finalMat, i, j, matVal, INSERT_VALUES);
+        }
+    }
+
+    for(int i = 12; i < 15; i++){
+        for(int j = 0; j < 12; j++){
+            PetscScalar matVal;
+            MatGetValue(gradTMat, i - 12, j, &matVal);
+            MatSetValue(finalMat, i, j, matVal, INSERT_VALUES);
+        }
+    }
+
+    for(int i = 12; i < 15; i++){
+        for(int j = 12; j < 15; j++){
+            MatSetValue(finalMat, i, j, 0, INSERT_VALUES);
+        }
+    }
+
+    MatAssemblyBegin(finalMat, MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(finalMat, MAT_FINAL_ASSEMBLY);
+
+    return finalMat;
+}
+
 Vec computeFirstStep(Mesh *msh, size_t elementTag){
     double dt = 0.0001;
     Vec eleVec;
@@ -350,8 +404,7 @@ Vec computeFirstStep(Mesh *msh, size_t elementTag){
         
         Mat massMat = computeMassMatrix(elementTag);
         Mat viscMat = computeViscosityMatrix(elementTag);
-        Mat convMat = computeConvectionMatrix(velVec, elementTag);
-        Mat gradMat = computeGradientMatrix(elementTag);
+        Mat convMat = computeConvectionMatrix(elementTag);
 
         MatAXPY(convMat, 1.0, viscMat, SAME_NONZERO_PATTERN);
 
@@ -398,53 +451,7 @@ Vec computeFirstStep(Mesh *msh, size_t elementTag){
         //VecView(vint, PETSC_VIEWER_STDOUT_WORLD);
 
         MatScale(massMat, 1/dt);
-
-        //Initialise Final matrices
-        Mat finalMat;
-        Mat gradTMat;
-        MatCreate(PETSC_COMM_WORLD, &finalMat);
-        MatCreate(PETSC_COMM_WORLD, &gradTMat);
-        MatSetSizes(finalMat, PETSC_DECIDE, PETSC_DECIDE, 15, 15);
-        MatSetSizes(gradTMat, PETSC_DECIDE, PETSC_DECIDE, 3, 12);
-        MatSetFromOptions(finalMat);
-        MatSetFromOptions(gradTMat);
-        MatSetUp(finalMat);
-        MatSetUp(gradTMat);
-
-        MatTranspose(gradMat, MAT_INITIAL_MATRIX, &gradTMat);
-
-        for(int i = 0; i < 12; i++){
-            for(int j = 0; j < 12; j++){
-                PetscScalar matVal;
-                MatGetValue(massMat, i, j, &matVal);
-                MatSetValue(finalMat, i, j, matVal, INSERT_VALUES);
-            }
-        }
-
-        for(int i = 0; i < 12; i++){
-            for(int j = 12; j < 15; j++){
-                PetscScalar matVal;
-                MatGetValue(gradMat, i, j - 12, &matVal);
-                MatSetValue(finalMat, i, j, matVal, INSERT_VALUES);
-            }
-        }
-
-        for(int i = 12; i < 15; i++){
-            for(int j = 0; j < 12; j++){
-                PetscScalar matVal;
-                MatGetValue(gradTMat, i - 12, j, &matVal);
-                MatSetValue(finalMat, i, j, matVal, INSERT_VALUES);
-            }
-        }
-
-        for(int i = 12; i < 15; i++){
-            for(int j = 12; j < 15; j++){
-                MatSetValue(finalMat, i, j, 0, INSERT_VALUES);
-            }
-        }
-
-        MatAssemblyBegin(finalMat, MAT_FINAL_ASSEMBLY);
-        MatAssemblyEnd(finalMat, MAT_FINAL_ASSEMBLY);
+        Mat finalMat = computeFinalMatrix(elementTag, massMat);
 
         Vec tmpVec;
         Vec solVec;

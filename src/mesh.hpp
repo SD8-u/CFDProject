@@ -9,7 +9,7 @@ using namespace std;
 
 //Node values for fluid domain
 struct Node {
-    size_t id;
+    int id;
     bool boundary;
     bool inlet;
     double force[2];
@@ -19,12 +19,12 @@ struct Node {
 };
 
 class Mesh {
-    private:
-        map<size_t, Node> nodes;
     public:
         int elementSize;
+        map<size_t, Node> nodes;
         vector<vector<size_t>> elementTags;
         map<size_t, vector<size_t>> elements;
+
         Mesh(string filePath);
         void getElementVector(size_t element, PetscScalar* elemVec, bool pressure);
         void getForceVector(size_t element, PetscScalar* force);
