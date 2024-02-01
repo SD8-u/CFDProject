@@ -12,10 +12,11 @@ class Solver {
         Mat globalViscMat;
         Mat globalConvMat;
         Mat globalFullMat;
+        Vec velocityVec;
         Vec nodalVec;
         Mesh *msh;
         void localToGlobalMat(int type);
-        void localToGlobalVec();
+        void localToGlobalVec(bool full);
     public:
         Solver(Mesh* msh);
         void assembleMatrices();

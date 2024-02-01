@@ -7,33 +7,52 @@ Mesh::Mesh(string filePath){
     vector<double> nodeCoords;
     vector<double> paramCoords;
     int nId = 0;
+
+    gmsh::vectorpair dimTags;
+    gmsh::model::getPhysicalGroups(dimTags);
+
+    for(auto dimTag : dimTags){
+        string name;
+        gmsh::model::getPhysicalName(dimTag.first, dimTag.second, name);
+        cout << "Name: " << name << " Tag: " << dimTag.second << " Dim: " << dimTag.first << "\n";
+    }
+
     //Retreive nodes in boundary
-    for(int boundaryTag = 2; boundaryTag < 5; boundaryTag++){
-        gmsh::model::mesh::getNodesForPhysicalGroup(2, boundaryTag, nodeTags, nodeCoords);
+    for(int boundaryTag = 1; boundaryTag < 2; boundaryTag++){
+        gmsh::model::mesh::getNodesForPhysicalGroup(1, boundaryTag, nodeTags, nodeCoords);
         for(int node = 0; node < nodeCoords.size()/3; node++){
             nodes[nodeTags[node]] = Node{nId++, true, false, 
             {0}, {0, 0}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
         }
     }
+
+    cout << "nID1: " << nId << "\n";
     
     //Retrieve nodes at inlet
-    int inletTag = 1;
-    gmsh::model::mesh::getNodesForPhysicalGroup(2, inletTag, nodeTags, nodeCoords);
+    int inletTag = 2;
+    gmsh::model::mesh::getNodesForPhysicalGroup(1, inletTag, nodeTags, nodeCoords);
     for(int node = 0; node < nodeCoords.size()/3; node++){
-        nodes[nodeTags[node]] = Node{nId++, false, true, 
-        {0}, {0, 1}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
-    }
-    
-    //Retrieve fluid nodes
-    int fluidTag = 6;
-    gmsh::model::mesh::getNodesForPhysicalGroup(2, fluidTag, nodeTags, nodeCoords);
-    for(int node = 0; node < nodeCoords.size()/3; node++){
-        nodes[nodeTags[node]] = Node{nId++, false, false, 
-        {0}, {0, 0}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
-    
+        if(nodes.find(nodeTags[node]) == nodes.end()){
+            nodes[nodeTags[node]] = Node{nId++, false, true, 
+            {0}, {0, 200}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
+            nodes[nodeTags[node]].boundary = false;
+        }
     }
 
-    cout << "nID: " << nId << "\n";
+    cout << "nID2: " << nId << "\n";
+    
+    //Retrieve fluid nodes
+    int fluidTag = 3;
+    gmsh::model::mesh::getNodesForPhysicalGroup(2, fluidTag, nodeTags, nodeCoords);
+    for(int node = 0; node < nodeCoords.size()/3; node++){
+        if(nodes.find(nodeTags[node]) == nodes.end()){
+            nodes[nodeTags[node]] = Node{nId++, false, false, 
+            {0}, {0}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
+            nodes[nodeTags[node]].boundary = false;
+        }
+    }
+
+    cout << "nID3: " << nId << "\n";
     
     //Encode element connectivity
     vector<int> elementTypes;

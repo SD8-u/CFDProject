@@ -170,7 +170,7 @@ Mat computeMassMatrix(size_t elementTag){
 }
 
 Mat computeViscosityMatrix(size_t elementTag){
-    double viscosity = 0.5;
+    double viscosity = 20;
     vector<double> coords;
     vector<double> gaussPoints;
     vector<double> gaussWeights;
@@ -334,8 +334,10 @@ Mat computeGradientMatrix(size_t elementTag){
     return gradientMatrix;
 }
 
-Mat computeFinalMatrix(size_t elementTag, Mat massMat){
+Mat computeFinalMatrix(size_t elementTag, double dt){
 
+    Mat massMat = computeMassMatrix(elementTag);
+    MatScale(massMat, dt);
     Mat gradMat = computeGradientMatrix(elementTag);
 
     //Initialise Final matrices
@@ -451,7 +453,7 @@ Vec computeFirstStep(Mesh *msh, size_t elementTag){
         //VecView(vint, PETSC_VIEWER_STDOUT_WORLD);
 
         MatScale(massMat, 1/dt);
-        Mat finalMat = computeFinalMatrix(elementTag, massMat);
+        Mat finalMat = computeFinalMatrix(elementTag, 1/dt);
 
         Vec tmpVec;
         Vec solVec;
