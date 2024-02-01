@@ -1,4 +1,5 @@
 #include <mesh.hpp>
+#include <unordered_set>
 
 Mesh::Mesh(string filePath){
     gmsh::open(filePath);
@@ -7,6 +8,7 @@ Mesh::Mesh(string filePath){
     vector<double> nodeCoords;
     vector<double> paramCoords;
     int nId = 0;
+    int pId = 0;
 
     gmsh::vectorpair dimTags;
     gmsh::model::getPhysicalGroups(dimTags);
@@ -21,43 +23,38 @@ Mesh::Mesh(string filePath){
     for(int boundaryTag = 1; boundaryTag < 2; boundaryTag++){
         gmsh::model::mesh::getNodesForPhysicalGroup(1, boundaryTag, nodeTags, nodeCoords);
         for(int node = 0; node < nodeCoords.size()/3; node++){
-            nodes[nodeTags[node]] = Node{nId++, true, false, 
+            nodes[nodeTags[node]] = Node{nId++, -1, true, false, 
             {0}, {0, 0}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
         }
     }
-
-    cout << "nID1: " << nId << "\n";
     
     //Retrieve nodes at inlet
     int inletTag = 2;
     gmsh::model::mesh::getNodesForPhysicalGroup(1, inletTag, nodeTags, nodeCoords);
     for(int node = 0; node < nodeCoords.size()/3; node++){
         if(nodes.find(nodeTags[node]) == nodes.end()){
-            nodes[nodeTags[node]] = Node{nId++, false, true, 
+            nodes[nodeTags[node]] = Node{nId++, -1, false, true, 
             {0}, {0, 200}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
             nodes[nodeTags[node]].boundary = false;
         }
     }
-
-    cout << "nID2: " << nId << "\n";
     
     //Retrieve fluid nodes
     int fluidTag = 3;
     gmsh::model::mesh::getNodesForPhysicalGroup(2, fluidTag, nodeTags, nodeCoords);
     for(int node = 0; node < nodeCoords.size()/3; node++){
         if(nodes.find(nodeTags[node]) == nodes.end()){
-            nodes[nodeTags[node]] = Node{nId++, false, false, 
+            nodes[nodeTags[node]] = Node{nId++, -1, false, false, 
             {0}, {0}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
             nodes[nodeTags[node]].boundary = false;
         }
     }
-
-    cout << "nID3: " << nId << "\n";
     
     //Encode element connectivity
     vector<int> elementTypes;
     vector<vector<size_t>> elementNodeTags;
     gmsh::model::mesh::getElements(elementTypes, elementTags, elementNodeTags, 2, -1);
+    unordered_set<size_t> pNodes;
 
     for(int element = 0; element < elementTags[0].size(); element++){
         int type;
@@ -65,9 +62,17 @@ Mesh::Mesh(string filePath){
         gmsh::model::mesh::getElement(elementTags[0][element], type, nodeTags);
 
         for(int node = 0; node < nodeTags.size(); node++){
+            if(node < 3){
+                if(pNodes.find(nodeTags[node]) == pNodes.end()){
+                    nodes[nodeTags[node]].pid = pId++;
+                    pNodes.emplace(nodeTags[node]);
+                }
+            }
             elements[elementTags[0][element]].push_back(nodeTags[node]);
         }
     }
+    nLinear = pId;
+    cout << "Linear Nodes: " << nLinear << "\n";
 }
 
 //Returns vector of velocity and pressure for given element

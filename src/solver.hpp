@@ -8,6 +8,7 @@
 class Solver {
     private:
         int nNodes;
+        double dt = 1/0.01;
         Mat globalMassMat;
         Mat globalViscMat;
         Mat globalConvMat;
@@ -21,5 +22,7 @@ class Solver {
         Solver(Mesh* msh);
         void assembleMatrices();
         void assembleVector();
+        void computeFirstStep();
+        void computeSecondStep();
         void computeTimeStep();
 };

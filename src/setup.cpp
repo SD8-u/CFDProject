@@ -48,7 +48,7 @@ PYBIND11_MODULE(MeshExtension, m) {
 int main(int argc, char **argv)
 {
    PetscInitialize(&argc, &argv, PETSC_NULL, PETSC_NULL);
-   computeFlow(1);
+   computeFlow(2);
 
    PetscInt n = 5;
    Vec x;
