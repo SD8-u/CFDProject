@@ -24,6 +24,7 @@ class Mesh {
         int elementSize;
         int nLinear;
         map<size_t, Node> nodes;
+        map<int, size_t> nodeIds;
         vector<vector<size_t>> elementTags;
         map<size_t, vector<size_t>> elements;
 

@@ -31,7 +31,6 @@ void computeFlow(int refinement){
    gmsh::initialize();
 
    Mesh *msh = generateMesh(refinement);
-
    Solver* solver = new Solver(msh);
    solver->assembleMatrices();
    solver->computeTimeStep();
@@ -48,7 +47,7 @@ PYBIND11_MODULE(MeshExtension, m) {
 int main(int argc, char **argv)
 {
    PetscInitialize(&argc, &argv, PETSC_NULL, PETSC_NULL);
-   computeFlow(2);
+   computeFlow(0);
 
    PetscInt n = 5;
    Vec x;

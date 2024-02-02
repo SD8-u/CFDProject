@@ -23,6 +23,7 @@ Mesh::Mesh(string filePath){
     for(int boundaryTag = 1; boundaryTag < 2; boundaryTag++){
         gmsh::model::mesh::getNodesForPhysicalGroup(1, boundaryTag, nodeTags, nodeCoords);
         for(int node = 0; node < nodeCoords.size()/3; node++){
+            nodeIds[nId] = nodeTags[node];
             nodes[nodeTags[node]] = Node{nId++, -1, true, false, 
             {0}, {0, 0}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
         }
@@ -33,9 +34,9 @@ Mesh::Mesh(string filePath){
     gmsh::model::mesh::getNodesForPhysicalGroup(1, inletTag, nodeTags, nodeCoords);
     for(int node = 0; node < nodeCoords.size()/3; node++){
         if(nodes.find(nodeTags[node]) == nodes.end()){
+            nodeIds[nId] = nodeTags[node];
             nodes[nodeTags[node]] = Node{nId++, -1, false, true, 
-            {0}, {0, 200}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
-            nodes[nodeTags[node]].boundary = false;
+            {0}, {0, 0}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
         }
     }
     
@@ -44,9 +45,9 @@ Mesh::Mesh(string filePath){
     gmsh::model::mesh::getNodesForPhysicalGroup(2, fluidTag, nodeTags, nodeCoords);
     for(int node = 0; node < nodeCoords.size()/3; node++){
         if(nodes.find(nodeTags[node]) == nodes.end()){
+            nodeIds[nId] = nodeTags[node];
             nodes[nodeTags[node]] = Node{nId++, -1, false, false, 
-            {0}, {0}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
-            nodes[nodeTags[node]].boundary = false;
+            {0}, {5, 10}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
         }
     }
     
