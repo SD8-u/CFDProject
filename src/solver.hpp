@@ -1,9 +1,5 @@
 #include <petsc.h>
-
-#ifndef MESH_HPP
-#define MESH_HPP
-#include <mesh.hpp>
-#endif
+#include "compute.hpp"
 
 class Solver {
     private:
@@ -25,5 +21,5 @@ class Solver {
         void assembleVector();
         void computeFirstStep();
         void computeSecondStep();
-        void computeTimeStep();
+        vector<vector<double>> computeTimeStep(int steps);
 };

@@ -1,4 +1,4 @@
-#include <mesh.hpp>
+#include "mesh.hpp"
 #include <unordered_set>
 
 Mesh::Mesh(string filePath){
@@ -81,46 +81,13 @@ Mesh::Mesh(string filePath){
     cout << "Linear Nodes: " << nLinear << "\n";
 }
 
-//Returns vector of velocity and pressure for given element
-void Mesh::getElementVector(size_t element, PetscScalar* elemVec, bool pressure){
-    vector<double> xVel;
-    vector<double> yVel;
-    vector<double> p;
-
-    int i = 0;
-
-    for(size_t node : elements[element]){
-        xVel.push_back(nodes[node].velocity[0]);
-        yVel.push_back(nodes[node].velocity[1]);
-        p.push_back(nodes[node].pressure);
+//Returns vector of coordinates for each node
+vector<vector<double>> Mesh::getNodeCoords(){
+    vector<vector<double>> coord = vector<vector<double>>(2);
+    for(int i = 0; i < nNodes; i++){
+        coord[0].push_back(nodes[nodeIds[i]].x);
+        coord[1].push_back(nodes[nodeIds[i]].y);
     }
-    for(double velocity : xVel){
-        elemVec[i++] = velocity;
-    }
-    for(double velocity: yVel){
-        elemVec[i++] = velocity;
-    }
-    if(pressure){
-        for(double pressure : p){
-            elemVec[i++] = pressure;
-        }
-    }
-}
-
-void Mesh::getForceVector(size_t element, PetscScalar* force){
-    vector<double> xForce;
-    vector<double> yForce;
-    int i = 0;
-
-    for(size_t node: elements[element]){
-        xForce.push_back(nodes[node].force[0]);
-        yForce.push_back(nodes[node].force[1]);
-    }
-    for(double f : xForce){
-        force[i++] = f;
-    }
-    for(double f : yForce){
-        force[i++] = f;
-    }
+    return coord;
 }
 

@@ -1,3 +1,5 @@
-import MeshExtension
+import bloodflow
+import matplotlib as plt
+import numpy as np
 
-MeshExtension.computeFlow(5)
+bloodflow.computeFlow(1, 200)

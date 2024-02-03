@@ -31,6 +31,5 @@ class Mesh {
         vector<PetscInt> dirichletIds;
 
         Mesh(string filePath);
-        void getElementVector(size_t element, PetscScalar* elemVec, bool pressure);
-        void getForceVector(size_t element, PetscScalar* force);
+        vector<vector<double>> getNodeCoords();
 };

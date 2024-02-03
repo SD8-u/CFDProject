@@ -1,11 +1,4 @@
-#include <iostream>
-#include <vector>
-#include <string>
-#include <petsc.h>
-#include <gmsh.h>
-#include <compute.hpp>
-#include <solver.hpp>
-#include <pybind11/pybind11.h>
+#include "setup.hpp"
 
 using namespace std;
 
@@ -27,19 +20,21 @@ Mesh* generateMesh(int refinement){
    return new Mesh("geometry/example.msh");
 }
 
-void computeFlow(int refinement){
+void computeFlow(int refinement, int steps){
    gmsh::initialize();
+   PetscInitializeNoArguments();
 
    Mesh *msh = generateMesh(refinement);
    Solver* solver = new Solver(msh);
    solver->assembleMatrices();
-   solver->computeTimeStep();
+   vector<vector<double>> fluid = solver->computeTimeStep(steps);
 
    gmsh::fltk::run();
+   PetscFinalize();
    gmsh::finalize();
 }
 
-PYBIND11_MODULE(MeshExtension, m) {
+PYBIND11_MODULE(bloodflow, m) {
     m.def("computeFlow", &computeFlow, "A function to compute flow");
 }
 
@@ -47,7 +42,7 @@ PYBIND11_MODULE(MeshExtension, m) {
 int main(int argc, char **argv)
 {
    PetscInitialize(&argc, &argv, PETSC_NULL, PETSC_NULL);
-   computeFlow(3);
+   computeFlow(3, 200);
 
    PetscFinalize();
    return 0;

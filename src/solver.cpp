@@ -1,5 +1,4 @@
-#include <solver.hpp>
-#include <compute.hpp>
+#include "solver.hpp"
 
 Solver::Solver(Mesh* msh){
     this->msh = msh;
@@ -298,8 +297,9 @@ void Solver::computeSecondStep(){
     KSPDestroy(&solver);
 }
 
-void Solver::computeTimeStep(){
-    for(int x = 0; x < 200; x++){
+vector<vector<double>> Solver::computeTimeStep(int steps){
+    vector<vector<double>> fluid = vector<vector<double>>(3);
+    for(int x = 0; x < steps; x++){
         this->computeFirstStep();
         this->computeSecondStep();
         cout << "Step: " << x << "\n";
@@ -308,17 +308,22 @@ void Solver::computeTimeStep(){
     //VecView(nodalVec, PETSC_VIEWER_STDOUT_WORLD);
 
     for(int i = 0; i < nNodes; i++){
-        PetscInt iVx = i;
-        PetscInt iVy = i + nNodes;
-        PetscInt iP = i + nNodes * 2;
-        PetscScalar vx;
-        PetscScalar vy;
+        PetscInt iu = i;
+        PetscInt iv = i + nNodes;
+        PetscInt ip = i + nNodes * 2;
+        PetscScalar u;
+        PetscScalar v;
         PetscScalar p;
 
-        VecGetValues(nodalVec, 1, &iVx, &vx);
-        VecGetValues(nodalVec, 1, &iVy, &vy);
+        VecGetValues(nodalVec, 1, &iu, &u);
+        VecGetValues(nodalVec, 1, &iv, &v);
+        VecGetValues(nodalVec, 1, &ip, &p);
 
-        cout << "Node" << i << ": \n";
+        fluid[0].push_back(u);
+        fluid[1].push_back(v);
+        fluid[2].push_back(p);
+
+        /*cout << "Node" << i << ": \n";
         cout << "x: " << msh->nodes[msh->nodeIds[i]].x << " y: " 
         << msh->nodes[msh->nodeIds[i]].y << "\n";
         cout << "Velx = " << vx << ", Vely = " << vy << "\n";
@@ -326,6 +331,7 @@ void Solver::computeTimeStep(){
         if(msh->nodes[msh->nodeIds[i]].pid > -1){
             VecGetValues(nodalVec, 1, &iP, &p);
             cout << "Pressure: " << p << "\n";
-        }
+        }*/
     }
+    return fluid;
 }

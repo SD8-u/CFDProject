@@ -1,2 +1,2 @@
-Use *python setup.py build_ext --inplace* in /scripts to generate python module defined in setup.py
-Use make to compile cpp files in /src
+Use *cmake ..* and *cmake --build .* in /build to compile/generate module
+Use *pip install .* in /scripts once generated to install module in python

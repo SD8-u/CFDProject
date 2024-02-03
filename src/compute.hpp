@@ -5,7 +5,7 @@
 
 #ifndef MESH_HPP
 #define MESH_HPP
-#include <mesh.hpp>
+#include "mesh.hpp"
 #endif
 
 using namespace std;

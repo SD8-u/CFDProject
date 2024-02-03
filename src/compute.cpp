@@ -1,4 +1,4 @@
-#include <compute.hpp>
+#include "compute.hpp"
 
 //Retrieve guass quadrature parameters
 void getIntegrationPoints(int type, vector<double> &gaussPoints, vector<double> &gaussWeights){
