@@ -17,6 +17,12 @@ void getIntegrationPoints(int type, vector<double> &gaussPoints, vector<double> 
     }
 }
 
+void cleanUp(vector<Mat> matrices){
+    for(Mat m : matrices){
+        MatDestroy(&m);
+    }
+}
+
 vector<Mat> getBasisMatrix(vector<double> gaussPoints, vector<double> basisFuncs){
     vector<Mat> basisMats = vector<Mat>(basisFuncs.size()/6);
     int m = 0;
@@ -112,6 +118,7 @@ vector<Mat> computeBasisGradMatrix(vector<double> basisFuncsGrad, vector<double>
 
         m++;
     }
+    cleanUp(inverseJacob);
 
     return basisGradMat;
 }
@@ -170,7 +177,7 @@ Mat computeMassMatrix(size_t elementTag){
 }
 
 Mat computeViscosityMatrix(size_t elementTag){
-    double viscosity = 20;
+    double viscosity = 1;
     vector<double> coords;
     vector<double> gaussPoints;
     vector<double> gaussWeights;
@@ -226,7 +233,9 @@ Mat computeViscosityMatrix(size_t elementTag){
 
     // Print the viscosity matrix
     //MatView(viscosityMatrix, PETSC_VIEWER_STDOUT_WORLD);
-
+    cleanUp(basisGradMats);
+    cleanUp(basisGradMatsT);
+    cleanUp(viscMats);
     return viscosityMatrix;
 }
 
@@ -282,7 +291,9 @@ Mat computeConvectionMatrix(size_t elementTag){
 
     // Print the convection matrix
     //MatView(convectionMatrix, PETSC_VIEWER_STDOUT_WORLD);
-
+    cleanUp(basisMats);
+    cleanUp(basisGradMats);
+    cleanUp(convMats);
     return convectionMatrix;
 }
 
@@ -320,7 +331,7 @@ Mat computeGradientMatrix(size_t elementTag){
             for(int gp = 0; gp < 18; gp+=3){
                 PetscScalar matVal = 0.0;
                 MatGetValue(basisGradMats[w], x, j, &matVal);
-                gradVal += -basisPres[gp + i] * matVal * gaussWeights[w] * jdets[w++];
+                gradVal -= basisPres[gp + i] * matVal * gaussWeights[w] * jdets[w++];
             }
             MatSetValue(gradientMatrix, j, i, gradVal, INSERT_VALUES);
         }
@@ -331,6 +342,7 @@ Mat computeGradientMatrix(size_t elementTag){
 
     // Print the gradient matrix
     //MatView(gradientMatrix, PETSC_VIEWER_STDOUT_WORLD);
+    cleanUp(basisGradMats);
 
     return gradientMatrix;
 }
@@ -387,6 +399,10 @@ Mat computeFinalMatrix(size_t elementTag, double dt){
 
     MatAssemblyBegin(finalMat, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(finalMat, MAT_FINAL_ASSEMBLY);
+
+    MatDestroy(&massMat);
+    MatDestroy(&gradMat);
+    MatDestroy(&gradTMat);
 
     return finalMat;
 }

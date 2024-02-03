@@ -34,12 +34,22 @@ Solver::Solver(Mesh* msh){
     MatZeroEntries(globalConvMat);
     MatZeroEntries(globalFullMat);
 
-    //VERY SLOW **FIX**
-    for(int x = 0; x < nNodes * 2 + msh->nLinear; x++){
-        for(int y = 0; y < nNodes * 2 + msh->nLinear; y++){
-            MatSetValue(globalFullMat, x, y, 0, ADD_VALUES);
-        }
-    }
+    PetscScalar zero[(nNodes * 2 + msh->nLinear) * (nNodes * 2 + msh->nLinear)] = {0};
+    PetscInt ind[(nNodes * 2 + msh->nLinear) * (nNodes * 2 + msh->nLinear)];
+
+    cout << "1\n";
+    //for(int x = 0; x < nNodes * 2 + msh->nLinear; x++){
+        //for(int y = 0; y < nNodes * 2 + msh->nLinear; y++){
+            //ind[x * (nNodes * 2 + msh->nLinear) + y] = 
+            //x * (nNodes * 2 + msh->nLinear) + y;
+        //}
+    //}
+
+    //MatSetValues(globalFullMat, nNodes * 2 + msh->nLinear, ind, 
+    //nNodes * 2 + msh->nLinear, ind, zero, INSERT_VALUES);
+    cout << "2\n";
+    MatAssemblyBegin(globalFullMat, MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(globalFullMat, MAT_FINAL_ASSEMBLY);
 
     VecCreate(PETSC_COMM_WORLD, &velocityVec);
     VecSetSizes(velocityVec, PETSC_DECIDE, nNodes * 2);
@@ -51,20 +61,26 @@ Solver::Solver(Mesh* msh){
 }
 
 void Solver::applyDirichletConditions(Mat *m, Vec *v, bool expl){
+    PetscInt* rows = msh->dirichletIds.data();
+    Vec* sol = v;
+
+    if(!expl){
+        VecCreate(PETSC_COMM_WORLD, sol);
+        VecSetSizes(*sol, PETSC_DECIDE, nNodes * 2);
+        VecSetFromOptions(*sol); 
+    }
+    //cout << "---------\n";
+
     for(int i = 0; i < nNodes; i++){
         Node n = msh->nodes[msh->nodeIds[i]];
         if(n.boundary || n.inlet) {
-            if(!expl){
-                for(int v = 0; v < nNodes + 1; v+=nNodes){
-                    for(int j = 0; j < nNodes * 2; j++){
-                        PetscScalar val = (j == i + v);
-                        MatSetValue(*m, i + v, j, val, INSERT_VALUES);
-                    }   
-                }
-            }
-            VecSetValue(*v, i, 0.0, INSERT_VALUES);
-            VecSetValue(*v, i + nNodes, 0.0, INSERT_VALUES);
+            VecSetValue(*sol, i, n.velocity[0], INSERT_VALUES);
+            VecSetValue(*sol, i + nNodes, n.velocity[1], INSERT_VALUES);
         }
+    }
+
+    if(!expl){
+        MatZeroRows(*m, msh->dirichletIds.size(), rows, 1.0, *sol, *sol);
     }
     MatAssemblyBegin(*m, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(*m, MAT_FINAL_ASSEMBLY);
@@ -180,6 +196,7 @@ void Solver::assembleMatrices(){
     localToGlobalVec(true);
     VecAssemblyBegin(nodalVec);
     VecAssemblyEnd(nodalVec);
+    cout << "ASSEMBLY END\n";
 }
 
 void Solver::computeFirstStep(){
@@ -200,17 +217,8 @@ void Solver::computeFirstStep(){
     VecSetFromOptions(tempVec);
     VecSetFromOptions(vint);
 
-    //VERY SLOW **FIX**
-    for(int i = 0; i < nNodes * 2; i++){
-        for(int j = 0; j < nNodes * 2; j++){
-            PetscInt ind = j;
-            PetscScalar vecVal;
-            PetscScalar matVal;
-            VecGetValues(velocityVec, 1, &ind, &vecVal);
-            MatGetValue(globalConvMat, i, j, &matVal);
-            MatSetValue(tempMat, i, j, matVal * vecVal, INSERT_VALUES);
-        }
-    }
+    MatConvert(globalConvMat, MATSAME, MAT_INITIAL_MATRIX, &tempMat);
+    MatDiagonalScale(tempMat, NULL, velocityVec);
 
     MatAssemblyBegin(tempMat, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(tempMat, MAT_FINAL_ASSEMBLY);
@@ -236,6 +244,7 @@ void Solver::computeFirstStep(){
 
     VecCopy(velocityVec, vint);
     VecDestroy(&vint);
+    KSPDestroy(&solver);
 }
 
 void Solver::computeSecondStep(){
@@ -262,7 +271,7 @@ void Solver::computeSecondStep(){
 
     VecAssemblyBegin(solVec);
     VecAssemblyEnd(solVec);
-
+ 
     KSP solver;
     KSPCreate(PETSC_COMM_WORLD, &solver);
     KSPSetOperators(solver, globalFullMat, globalFullMat);
@@ -286,14 +295,37 @@ void Solver::computeSecondStep(){
 
     VecDestroy(&solVec);
     VecDestroy(&tempVec);
+    KSPDestroy(&solver);
 }
 
 void Solver::computeTimeStep(){
-    for(int x = 0; x < 1000; x++){
+    for(int x = 0; x < 200; x++){
         this->computeFirstStep();
         this->computeSecondStep();
+        cout << "Step: " << x << "\n";
     }
 
-    VecView(nodalVec, PETSC_VIEWER_STDOUT_WORLD);
+    //VecView(nodalVec, PETSC_VIEWER_STDOUT_WORLD);
 
+    for(int i = 0; i < nNodes; i++){
+        PetscInt iVx = i;
+        PetscInt iVy = i + nNodes;
+        PetscInt iP = i + nNodes * 2;
+        PetscScalar vx;
+        PetscScalar vy;
+        PetscScalar p;
+
+        VecGetValues(nodalVec, 1, &iVx, &vx);
+        VecGetValues(nodalVec, 1, &iVy, &vy);
+
+        cout << "Node" << i << ": \n";
+        cout << "x: " << msh->nodes[msh->nodeIds[i]].x << " y: " 
+        << msh->nodes[msh->nodeIds[i]].y << "\n";
+        cout << "Velx = " << vx << ", Vely = " << vy << "\n";
+
+        if(msh->nodes[msh->nodeIds[i]].pid > -1){
+            VecGetValues(nodalVec, 1, &iP, &p);
+            cout << "Pressure: " << p << "\n";
+        }
+    }
 }

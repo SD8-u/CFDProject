@@ -10,6 +10,8 @@ Mesh::Mesh(string filePath){
     int nId = 0;
     int pId = 0;
 
+    gmsh::model::mesh::getNodes(nodeTags, nodeCoords, paramCoords);
+    nNodes = nodeTags.size();
     gmsh::vectorpair dimTags;
     gmsh::model::getPhysicalGroups(dimTags);
 
@@ -19,23 +21,26 @@ Mesh::Mesh(string filePath){
         cout << "Name: " << name << " Tag: " << dimTag.second << " Dim: " << dimTag.first << "\n";
     }
 
-    //Retreive nodes in boundary
-    for(int boundaryTag = 1; boundaryTag < 2; boundaryTag++){
-        gmsh::model::mesh::getNodesForPhysicalGroup(1, boundaryTag, nodeTags, nodeCoords);
-        for(int node = 0; node < nodeCoords.size()/3; node++){
-            nodeIds[nId] = nodeTags[node];
-            nodes[nodeTags[node]] = Node{nId++, -1, true, false, 
-            {0}, {0, 0}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
-        }
-    }
-    
     //Retrieve nodes at inlet
     int inletTag = 2;
     gmsh::model::mesh::getNodesForPhysicalGroup(1, inletTag, nodeTags, nodeCoords);
     for(int node = 0; node < nodeCoords.size()/3; node++){
+        dirichletIds.push_back(nId);
+        dirichletIds.push_back(nId + nNodes);
+        nodeIds[nId] = nodeTags[node];
+        nodes[nodeTags[node]] = Node{nId++, -1, false, true, 
+        {0}, {300, 0}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
+    }
+
+    //Retreive nodes in boundary
+    int boundaryTag = 1;
+    gmsh::model::mesh::getNodesForPhysicalGroup(1, boundaryTag, nodeTags, nodeCoords);
+    for(int node = 0; node < nodeCoords.size()/3; node++){
         if(nodes.find(nodeTags[node]) == nodes.end()){
             nodeIds[nId] = nodeTags[node];
-            nodes[nodeTags[node]] = Node{nId++, -1, false, true, 
+            dirichletIds.push_back(nId);
+            dirichletIds.push_back(nId + nNodes);
+            nodes[nodeTags[node]] = Node{nId++, -1, true, false, 
             {0}, {0, 0}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
         }
     }
@@ -47,7 +52,7 @@ Mesh::Mesh(string filePath){
         if(nodes.find(nodeTags[node]) == nodes.end()){
             nodeIds[nId] = nodeTags[node];
             nodes[nodeTags[node]] = Node{nId++, -1, false, false, 
-            {0}, {5, 10}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
+            {0}, {0, 0}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
         }
     }
     
