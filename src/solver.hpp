@@ -5,6 +5,7 @@ class Solver {
     private:
         int nNodes;
         double dt = 1/0.001;
+        double viscosity = 0.001;
         Mat globalMassMat;
         Mat globalViscMat;
         Mat globalConvMat;
@@ -16,7 +17,7 @@ class Solver {
         void localToGlobalVec(bool full);
         void applyDirichletConditions(Mat *m, Vec *v, bool full);
     public:
-        Solver(Mesh* msh);
+        Solver(Mesh* msh, double dt, double visc);
         void assembleMatrices();
         void assembleVector();
         void computeFirstStep();

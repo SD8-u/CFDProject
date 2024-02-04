@@ -1,9 +1,10 @@
 #include "mesh.hpp"
 #include <unordered_set>
 
-Mesh::Mesh(string filePath){
+Mesh::Mesh(string filePath, double boundaryVel){
     gmsh::open(filePath);
-    
+    this->boundaryVel = boundaryVel;
+
     vector<size_t> nodeTags;
     vector<double> nodeCoords;
     vector<double> paramCoords;
@@ -29,7 +30,7 @@ Mesh::Mesh(string filePath){
         dirichletIds.push_back(nId + nNodes);
         nodeIds[nId] = nodeTags[node];
         nodes[nodeTags[node]] = Node{nId++, -1, false, true, 
-        {0}, {300, 0}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
+        {0}, {boundaryVel, 0}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
     }
 
     //Retreive nodes in boundary

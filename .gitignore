@@ -3,3 +3,4 @@ venv/
 
 #Ignore build artifacts
 build/
+fluid_plot.png

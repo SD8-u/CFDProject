@@ -15,4 +15,3 @@ Mat computeViscosityMatrix(size_t elementTag);
 Mat computeConvectionMatrix(size_t elementTag);
 Mat computeGradientMatrix(size_t elementTag);
 Mat computeFinalMatrix(size_t elementTag, double dt);
-Vec computeFirstStep(Mesh *msh, size_t elementTag);

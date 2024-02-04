@@ -177,7 +177,6 @@ Mat computeMassMatrix(size_t elementTag){
 }
 
 Mat computeViscosityMatrix(size_t elementTag){
-    double viscosity = 1;
     vector<double> coords;
     vector<double> gaussPoints;
     vector<double> gaussWeights;
@@ -223,7 +222,6 @@ Mat computeViscosityMatrix(size_t elementTag){
                 MatGetValue(viscMats[w], i, j, &matVal);
                 viscVal +=  matVal * gaussWeights[w] * jdets[w++];
             }
-            viscVal *= viscosity;
             MatSetValue(viscosityMatrix, i, j, viscVal, INSERT_VALUES);
         }
     }
@@ -279,8 +277,8 @@ Mat computeConvectionMatrix(size_t elementTag){
             for(int gp = 0; gp < 36; gp+=6){
                 PetscScalar matVal;
                 MatGetValue(convMats[w], i, j, &matVal);
-                convVal +=  (matVal * gaussWeights[w] * jdets[w]) 
-                + (0.5 * matVal * gaussWeights[w] * jdets[w++]);
+                convVal +=  (1.5 * matVal * gaussWeights[w] * jdets[w]);
+                //+ (0.5 * matVal * gaussWeights[w] * jdets[w++]);
             }
             MatSetValue(convectionMatrix, i, j, convVal, INSERT_VALUES);
         }
@@ -331,7 +329,7 @@ Mat computeGradientMatrix(size_t elementTag){
             for(int gp = 0; gp < 18; gp+=3){
                 PetscScalar matVal = 0.0;
                 MatGetValue(basisGradMats[w], x, j, &matVal);
-                gradVal -= basisPres[gp + i] * matVal * gaussWeights[w] * jdets[w++];
+                gradVal += basisPres[gp + i] * matVal * gaussWeights[w] * jdets[w++];
             }
             MatSetValue(gradientMatrix, j, i, gradVal, INSERT_VALUES);
         }
@@ -405,122 +403,4 @@ Mat computeFinalMatrix(size_t elementTag, double dt){
     MatDestroy(&gradTMat);
 
     return finalMat;
-}
-
-Vec computeFirstStep(Mesh *msh, size_t elementTag){
-    double dt = 0.0001;
-    Vec eleVec;
-
-    /*PetscScalar forceArr[12]; 
-    msh->getForceVector(elementTag, forceArr);
-    PetscScalar velVec[12];
-    msh->getElementVector(elementTag, velVec, false);*/
-
-    PetscScalar velVec[] = {10, 5, 7, 8, 4, 0, 0, 0, 0, 0, 0, 0};
-    PetscScalar forceArr[] = {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
-
-    for(int time = 0; time < 2000; time++){
-        
-        Mat massMat = computeMassMatrix(elementTag);
-        Mat viscMat = computeViscosityMatrix(elementTag);
-        Mat convMat = computeConvectionMatrix(elementTag);
-
-        MatAXPY(convMat, 1.0, viscMat, DIFFERENT_NONZERO_PATTERN);
-
-        Vec vint;
-        Vec f;
-        Vec v;
-        Vec t;
-
-        VecCreate(PETSC_COMM_WORLD, &vint);
-        VecCreate(PETSC_COMM_WORLD, &f);
-        VecCreate(PETSC_COMM_WORLD, &v);
-        VecCreate(PETSC_COMM_WORLD, &t);
-        VecSetSizes(vint, PETSC_DECIDE, 12);
-        VecSetSizes(f, PETSC_DECIDE, 12);
-        VecSetSizes(v, PETSC_DECIDE, 12);
-        VecSetSizes(t, PETSC_DECIDE, 12);
-        VecSetFromOptions(vint);
-        VecSetFromOptions(f);
-        VecSetFromOptions(v);
-        VecSetFromOptions(t);
-
-        PetscInt indices[] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
-        VecSetValues(f, 12, indices, forceArr, INSERT_VALUES);
-        VecSetValues(v, 12, indices, velVec, INSERT_VALUES);
-        VecAssemblyBegin(f);
-        VecAssemblyEnd(f);
-        VecAssemblyBegin(v);
-        VecAssemblyEnd(v);
-
-        VecScale(v, 1/dt);
-        MatMult(massMat, v, t);
-        MatAXPY(convMat, 1/dt, massMat, DIFFERENT_NONZERO_PATTERN);
-        VecAXPY(f, 1.0, t);
-
-        KSP solver;
-        KSPCreate(PETSC_COMM_WORLD, &solver);
-        KSPSetOperators(solver, convMat, convMat);
-        KSPSetType(solver, KSPGMRES);
-        KSPSetFromOptions(solver);
-
-        KSPSolve(solver, f, vint);
-
-        //cout << "First Step Solution: \n";
-        //VecView(vint, PETSC_VIEWER_STDOUT_WORLD);
-
-        MatScale(massMat, 1/dt);
-        Mat finalMat = computeFinalMatrix(elementTag, 1/dt);
-
-        Vec tmpVec;
-        Vec solVec;
-
-        VecCreate(PETSC_COMM_WORLD, &tmpVec);
-        VecSetSizes(tmpVec, PETSC_DECIDE, 12);
-        VecSetFromOptions(tmpVec);
-        VecCreate(PETSC_COMM_WORLD, &solVec);
-        VecSetSizes(solVec, PETSC_DECIDE, 15);
-        VecSetFromOptions(solVec);
-        VecCreate(PETSC_COMM_WORLD, &eleVec);
-        VecSetSizes(eleVec, PETSC_DECIDE, 15);
-        VecSetFromOptions(eleVec);
-
-        MatMult(massMat, vint, tmpVec);
-
-        for(int i = 0; i < 12; i++){
-            PetscScalar val;
-            PetscInt ind = i;
-            VecGetValues(tmpVec, 1, &ind, &val);
-            VecSetValue(solVec, ind, val, INSERT_VALUES);
-        }
-
-        for(int i = 12; i < 15; i++){
-            VecSetValue(solVec, i, 0, INSERT_VALUES);
-        }
-
-        KSP solver1;
-        KSPCreate(PETSC_COMM_WORLD, &solver1);
-        KSPSetOperators(solver1, finalMat, finalMat);
-        KSPSetType(solver1, KSPGMRES);
-        KSPSetFromOptions(solver1);
-
-        KSPSolve(solver1, solVec, eleVec);
-
-        //cout << "Second Step Solution: \n";
-        //VecView(eleVec, PETSC_VIEWER_STDOUT_WORLD);
-
-        // Print the final matrix
-        //MatView(finalMat, PETSC_VIEWER_STDOUT_WORLD);
-
-        for(int i = 0; i < 12; i++){
-            PetscScalar val;
-            PetscInt ind = i;
-            VecGetValues(eleVec, 1, &ind, &val);
-            velVec[i] = val;
-        }
-
-    }
-    cout << "Second Step Solution: \n";
-    VecView(eleVec, PETSC_VIEWER_STDOUT_WORLD);
-    return NULL;
 }

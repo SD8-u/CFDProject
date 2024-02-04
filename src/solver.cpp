@@ -1,8 +1,10 @@
 #include "solver.hpp"
 
-Solver::Solver(Mesh* msh){
+Solver::Solver(Mesh* msh, double dt, double viscosity){
     this->msh = msh;
     nNodes = msh->nodes.size();
+    this->dt = 1/dt;
+    this->viscosity = viscosity;
 
     MatCreate(PETSC_COMM_WORLD, &globalMassMat);
     MatCreate(PETSC_COMM_WORLD, &globalViscMat);
@@ -179,6 +181,7 @@ void Solver::assembleMatrices(){
     localToGlobalMat(2);
     MatAssemblyBegin(globalViscMat, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(globalViscMat, MAT_FINAL_ASSEMBLY);
+    MatScale(globalViscMat, viscosity);
 
     localToGlobalMat(3);
     MatAssemblyBegin(globalConvMat, MAT_FINAL_ASSEMBLY);

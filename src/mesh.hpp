@@ -24,12 +24,13 @@ class Mesh {
         int elementSize;
         int nNodes;
         int nLinear;
+        double boundaryVel = 1.0;
         map<size_t, Node> nodes;
         map<int, size_t> nodeIds;
         vector<vector<size_t>> elementTags;
         map<size_t, vector<size_t>> elements;
         vector<PetscInt> dirichletIds;
 
-        Mesh(string filePath);
+        Mesh(string filePath, double boundaryVel);
         vector<vector<double>> getNodeCoords();
 };
