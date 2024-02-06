@@ -4,8 +4,8 @@
 class Solver {
     private:
         int nNodes;
-        double dt = 1/0.001;
-        double viscosity = 0.001;
+        double dt;
+        double viscosity;
         Mat globalMassMat;
         Mat globalViscMat;
         Mat globalConvMat;

@@ -49,7 +49,8 @@ pybind11::tuple computeFlow(int refinement, int steps, double vel, double dt, do
 }
 
 PYBIND11_MODULE(bloodflow, m) {
-    m.def("computeFlow", &computeFlow, "A function to compute flow");
+   m.doc() = "computes flow given (refinement, steps, velocity, dt, and visc)";
+   m.def("computeFlow", &computeFlow, "A function to compute flow");
 }
 
 int main(int argc, char **argv)

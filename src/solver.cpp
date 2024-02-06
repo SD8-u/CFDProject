@@ -35,20 +35,6 @@ Solver::Solver(Mesh* msh, double dt, double viscosity){
     MatZeroEntries(globalConvMat);
     MatZeroEntries(globalFullMat);
 
-    PetscScalar zero[(nNodes * 2 + msh->nLinear) * (nNodes * 2 + msh->nLinear)] = {0};
-    PetscInt ind[(nNodes * 2 + msh->nLinear) * (nNodes * 2 + msh->nLinear)];
-
-    cout << "1\n";
-    //for(int x = 0; x < nNodes * 2 + msh->nLinear; x++){
-        //for(int y = 0; y < nNodes * 2 + msh->nLinear; y++){
-            //ind[x * (nNodes * 2 + msh->nLinear) + y] = 
-            //x * (nNodes * 2 + msh->nLinear) + y;
-        //}
-    //}
-
-    //MatSetValues(globalFullMat, nNodes * 2 + msh->nLinear, ind, 
-    //nNodes * 2 + msh->nLinear, ind, zero, INSERT_VALUES);
-    cout << "2\n";
     MatAssemblyBegin(globalFullMat, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(globalFullMat, MAT_FINAL_ASSEMBLY);
 
@@ -63,25 +49,17 @@ Solver::Solver(Mesh* msh, double dt, double viscosity){
 
 void Solver::applyDirichletConditions(Mat *m, Vec *v, bool expl){
     PetscInt* rows = msh->dirichletIds.data();
-    Vec* sol = v;
-
-    if(!expl){
-        VecCreate(PETSC_COMM_WORLD, sol);
-        VecSetSizes(*sol, PETSC_DECIDE, nNodes * 2);
-        VecSetFromOptions(*sol); 
-    }
-    //cout << "---------\n";
 
     for(int i = 0; i < nNodes; i++){
         Node n = msh->nodes[msh->nodeIds[i]];
         if(n.boundary || n.inlet) {
-            VecSetValue(*sol, i, n.velocity[0], INSERT_VALUES);
-            VecSetValue(*sol, i + nNodes, n.velocity[1], INSERT_VALUES);
+            VecSetValue(*v, i, n.velocity[0], INSERT_VALUES);
+            VecSetValue(*v, i + nNodes, n.velocity[1], INSERT_VALUES);
         }
     }
 
     if(!expl){
-        MatZeroRows(*m, msh->dirichletIds.size(), rows, 1.0, *sol, *sol);
+        MatZeroRows(*m, msh->dirichletIds.size(), rows, 1.0, *v, *v);
     }
     MatAssemblyBegin(*m, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(*m, MAT_FINAL_ASSEMBLY);
@@ -99,13 +77,13 @@ void Solver::localToGlobalVec(bool full){
             Node n = msh->nodes[msh->elements[elementTag][i]];
             int x = n.id;
             int y = n.pid;
-            if(n.boundary){
-                VecSetValue(*vec, x, 0, INSERT_VALUES);
-                VecSetValue(*vec, x + nNodes, 0, INSERT_VALUES);
-            }
-            else{
+            if(n.inlet){
                 VecSetValue(*vec, x, n.velocity[0], INSERT_VALUES);
                 VecSetValue(*vec, x + nNodes, n.velocity[1], INSERT_VALUES);
+            }
+            else{
+                VecSetValue(*vec, x, 0.0, INSERT_VALUES);
+                VecSetValue(*vec, x + nNodes, 0.0, INSERT_VALUES);
             }
             if(i < 3 && full){
                 VecSetValue(*vec, 2 * nNodes + y, n.pressure, INSERT_VALUES);
@@ -171,7 +149,7 @@ void Solver::localToGlobalMat(int type){
 }
 
 void Solver::assembleMatrices(){
-    cout << "ASSEMBLY\n";
+    cout << "ASSEMBLY BEGIN\n";
 
     localToGlobalMat(1);
     MatAssemblyBegin(globalMassMat, MAT_FINAL_ASSEMBLY);
@@ -190,6 +168,12 @@ void Solver::assembleMatrices(){
     localToGlobalMat(4);
     MatAssemblyBegin(globalFullMat, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(globalFullMat, MAT_FINAL_ASSEMBLY);
+    Vec sol;
+    VecCreate(PETSC_COMM_WORLD, &sol);
+    VecSetSizes(sol, PETSC_DECIDE, nNodes * 2 + msh->nLinear);
+    VecSetFromOptions(sol);
+    applyDirichletConditions(&globalFullMat, &sol, false);
+    VecDestroy(&sol);
 
     localToGlobalVec(false);
     VecAssemblyBegin(velocityVec);
@@ -244,7 +228,7 @@ void Solver::computeFirstStep(){
     VecDestroy(&tempVec);
     MatDestroy(&tempMat);
 
-    VecCopy(velocityVec, vint);
+    VecCopy(vint, velocityVec);
     VecDestroy(&vint);
     KSPDestroy(&solver);
 }
@@ -273,27 +257,31 @@ void Solver::computeSecondStep(){
 
     VecAssemblyBegin(solVec);
     VecAssemblyEnd(solVec);
- 
+
+    applyDirichletConditions(&globalFullMat, &solVec, true);
+
     KSP solver;
     KSPCreate(PETSC_COMM_WORLD, &solver);
     KSPSetOperators(solver, globalFullMat, globalFullMat);
     KSPSetType(solver, KSPGMRES);
     KSPSetFromOptions(solver);
 
+    VecZeroEntries(nodalVec);
+
     KSPSolve(solver, solVec, nodalVec);
 
+    applyDirichletConditions(&globalFullMat, &nodalVec, true);
+    PetscScalar max = 0;
     for(int i = 0; i < nNodes * 2; i++){
         PetscInt ind = i;
         PetscScalar val;
         VecGetValues(nodalVec, 1, &ind, &val);
+        max = val > max ? val : max;
         VecSetValue(velocityVec, i, val, INSERT_VALUES);
     }
-
+    cout << "MAX (instability metric): " << max << "\n";
     VecAssemblyBegin(velocityVec);
     VecAssemblyEnd(velocityVec);
-
-    applyDirichletConditions(&globalFullMat, &nodalVec, true);
-    applyDirichletConditions(&globalFullMat, &velocityVec, true);
 
     VecDestroy(&solVec);
     VecDestroy(&tempVec);
@@ -307,8 +295,6 @@ vector<vector<double>> Solver::computeTimeStep(int steps){
         this->computeSecondStep();
         cout << "Step: " << x << "\n";
     }
-
-    //VecView(nodalVec, PETSC_VIEWER_STDOUT_WORLD);
 
     for(int i = 0; i < nNodes; i++){
         PetscInt iu = i;
@@ -325,16 +311,6 @@ vector<vector<double>> Solver::computeTimeStep(int steps){
         fluid[0].push_back(u);
         fluid[1].push_back(v);
         fluid[2].push_back(p);
-
-        /*cout << "Node" << i << ": \n";
-        cout << "x: " << msh->nodes[msh->nodeIds[i]].x << " y: " 
-        << msh->nodes[msh->nodeIds[i]].y << "\n";
-        cout << "Velx = " << vx << ", Vely = " << vy << "\n";
-
-        if(msh->nodes[msh->nodeIds[i]].pid > -1){
-            VecGetValues(nodalVec, 1, &iP, &p);
-            cout << "Pressure: " << p << "\n";
-        }*/
     }
     return fluid;
 }

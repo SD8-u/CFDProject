@@ -170,9 +170,6 @@ Mat computeMassMatrix(size_t elementTag){
     MatAssemblyBegin(massMatrix, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(massMatrix, MAT_FINAL_ASSEMBLY);
 
-    // Print the mass matrix
-    //MatView(massMatrix, PETSC_VIEWER_STDOUT_WORLD);
-
     return massMatrix;
 }
 
@@ -229,8 +226,7 @@ Mat computeViscosityMatrix(size_t elementTag){
     MatAssemblyBegin(viscosityMatrix, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(viscosityMatrix, MAT_FINAL_ASSEMBLY);
 
-    // Print the viscosity matrix
-    //MatView(viscosityMatrix, PETSC_VIEWER_STDOUT_WORLD);
+    // Clean up matrices
     cleanUp(basisGradMats);
     cleanUp(basisGradMatsT);
     cleanUp(viscMats);
@@ -277,8 +273,7 @@ Mat computeConvectionMatrix(size_t elementTag){
             for(int gp = 0; gp < 36; gp+=6){
                 PetscScalar matVal;
                 MatGetValue(convMats[w], i, j, &matVal);
-                convVal +=  (1.5 * matVal * gaussWeights[w] * jdets[w]);
-                //+ (0.5 * matVal * gaussWeights[w] * jdets[w++]);
+                convVal +=  (matVal * gaussWeights[w] * jdets[w]);
             }
             MatSetValue(convectionMatrix, i, j, convVal, INSERT_VALUES);
         }
@@ -287,8 +282,7 @@ Mat computeConvectionMatrix(size_t elementTag){
     MatAssemblyBegin(convectionMatrix, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(convectionMatrix, MAT_FINAL_ASSEMBLY);
 
-    // Print the convection matrix
-    //MatView(convectionMatrix, PETSC_VIEWER_STDOUT_WORLD);
+    // Clean up matrices
     cleanUp(basisMats);
     cleanUp(basisGradMats);
     cleanUp(convMats);
@@ -329,7 +323,7 @@ Mat computeGradientMatrix(size_t elementTag){
             for(int gp = 0; gp < 18; gp+=3){
                 PetscScalar matVal = 0.0;
                 MatGetValue(basisGradMats[w], x, j, &matVal);
-                gradVal += basisPres[gp + i] * matVal * gaussWeights[w] * jdets[w++];
+                gradVal -= basisPres[gp + i] * matVal * gaussWeights[w] * jdets[w++];
             }
             MatSetValue(gradientMatrix, j, i, gradVal, INSERT_VALUES);
         }
@@ -338,8 +332,7 @@ Mat computeGradientMatrix(size_t elementTag){
     MatAssemblyBegin(gradientMatrix, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(gradientMatrix, MAT_FINAL_ASSEMBLY);
 
-    // Print the gradient matrix
-    //MatView(gradientMatrix, PETSC_VIEWER_STDOUT_WORLD);
+    // Clean up matrices
     cleanUp(basisGradMats);
 
     return gradientMatrix;
