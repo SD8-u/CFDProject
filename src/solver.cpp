@@ -299,18 +299,24 @@ vector<vector<double>> Solver::computeTimeStep(int steps){
     for(int i = 0; i < nNodes; i++){
         PetscInt iu = i;
         PetscInt iv = i + nNodes;
-        PetscInt ip = i + nNodes * 2;
         PetscScalar u;
         PetscScalar v;
-        PetscScalar p;
 
         VecGetValues(nodalVec, 1, &iu, &u);
         VecGetValues(nodalVec, 1, &iv, &v);
-        VecGetValues(nodalVec, 1, &ip, &p);
 
         fluid[0].push_back(u);
         fluid[1].push_back(v);
-        fluid[2].push_back(p);
+        fluid[2].push_back(-1);
+    }
+
+    for(int i = 0; i < nNodes; i++){
+        PetscInt ip = i + nNodes * 2;
+        PetscScalar p;
+        VecGetValues(nodalVec, 1, &ip, &p);
+        if(msh->nodes[msh->nodeIds[i]].pid != -1){
+            fluid[2][i] = p;
+        }
     }
     return fluid;
 }

@@ -35,12 +35,14 @@ pybind11::tuple computeFlow(int refinement, int steps, double vel, double dt, do
 
    pybind11::array_t<double> np_U(fluid[0].size(), fluid[0].data());
    pybind11::array_t<double> np_V(fluid[1].size(), fluid[1].data());
+   pybind11::array_t<double> np_P(fluid[2].size(), fluid[2].data());
 
-   pybind11::tuple result(4);
+   pybind11::tuple result(5);
    result[0] = np_X;
    result[1] = np_Y;
    result[2] = np_U;
    result[3] = np_V;
+   result[4] = np_P;
 
    //gmsh::fltk::run();
    PetscFinalize();
