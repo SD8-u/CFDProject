@@ -275,6 +275,7 @@ Mat computeConvectionMatrix(size_t elementTag){
                 MatGetValue(convMats[w], i, j, &matVal);
                 convVal +=  (matVal * gaussWeights[w] * jdets[w]);
             }
+            
             MatSetValue(convectionMatrix, i, j, convVal, INSERT_VALUES);
         }
     }

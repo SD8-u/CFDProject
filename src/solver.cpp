@@ -92,6 +92,53 @@ void Solver::localToGlobalVec(bool full){
     }
 }
 
+//Add SUPG to convection term
+void Solver::applyStabilisation(Mat* convMat){
+    for(size_t elementTag : msh->elementTags[0]){
+        //Compute element level SUPG parameter
+        double x[3], y[3];
+        double avgU, avgV;
+        int n = 0;
+        for(size_t node : msh->elements[elementTag]){
+            if(n < 3){
+                x[n] = msh->nodes[node].x;
+                y[n++] = msh->nodes[node].y;
+            }
+            PetscInt iU = msh->nodes[node].id;
+            PetscInt iV = msh->nodes[node].id + nNodes;
+            PetscScalar u, v;
+            VecGetValues(velocityVec, 1, &iU, &u);
+            VecGetValues(velocityVec, 1, &iV, &v);
+            avgU += u;
+            avgV += v;
+        }
+        avgU /= 6; avgV /= 6;
+        double elemSize = sqrt(0.5 * (x[0] * (y[1] - y[2]) + x[1] * 
+        (y[2] - y[0]) + x[2] * (y[0] - y[1])));
+        double convCentrVel = sqrt(avgU * avgU + avgV * avgV);
+
+        double supgParam = (elemSize/(2 * convCentrVel)) * 
+        1/(sqrt(1 + ((6 * viscosity)/(elemSize * convCentrVel))));
+
+        //Scale elements by param in global convection matrix to form SUPG stable term
+        Vec supgScaler;
+        VecCreate(PETSC_COMM_WORLD, &supgScaler);
+        VecSetSizes(supgScaler, PETSC_DECIDE, nNodes * 2);
+        VecSetFromOptions(supgScaler);
+        VecZeroEntries(supgScaler);
+
+        for(size_t node : msh->elements[elementTag]){
+            VecSetValue(supgScaler, msh->nodes[node].id, supgParam, INSERT_VALUES);
+            VecSetValue(supgScaler, msh->nodes[node].id + nNodes, supgParam, INSERT_VALUES);
+        }
+
+        VecAssemblyBegin(supgScaler);
+        VecAssemblyEnd(supgScaler);
+        MatDiagonalScale(*convMat, supgScaler, supgScaler);
+        VecDestroy(&supgScaler);
+    }
+}
+
 void Solver::localToGlobalMat(int type){
     for(size_t elementTag : msh->elementTags[0]){
 
@@ -187,6 +234,7 @@ void Solver::assembleMatrices(){
 
 void Solver::computeFirstStep(){
     Mat tempMat;
+    Mat stabMat;
     Vec tempVec;
     Vec vint;
 
@@ -196,6 +244,12 @@ void Solver::computeFirstStep(){
     MatSetFromOptions(tempMat);
     MatSetUp(tempMat);
 
+    MatCreate(PETSC_COMM_WORLD, &stabMat);
+    MatSetSizes(stabMat, PETSC_DECIDE, PETSC_DECIDE, 
+    nNodes * 2, nNodes * 2);
+    MatSetFromOptions(stabMat);
+    MatSetUp(stabMat);
+
     VecCreate(PETSC_COMM_WORLD, &tempVec);
     VecCreate(PETSC_COMM_WORLD, &vint);
     VecSetSizes(tempVec, PETSC_DECIDE, nNodes * 2);
@@ -204,11 +258,18 @@ void Solver::computeFirstStep(){
     VecSetFromOptions(vint);
 
     MatConvert(globalConvMat, MATSAME, MAT_INITIAL_MATRIX, &tempMat);
-    MatDiagonalScale(tempMat, NULL, velocityVec);
 
+    //SUPG computation
+    MatConvert(globalConvMat, MATSAME, MAT_INITIAL_MATRIX, &stabMat);
+    applyStabilisation(&stabMat);
+    MatAXPY(tempMat, 1.0, stabMat, SAME_NONZERO_PATTERN);
+    MatDestroy(&stabMat);
+    
+    MatDiagonalScale(tempMat, NULL, velocityVec);
     MatAssemblyBegin(tempMat, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(tempMat, MAT_FINAL_ASSEMBLY);
 
+    //Add viscous and mass matrix to system
     MatAXPY(tempMat, 1.0, globalViscMat, DIFFERENT_NONZERO_PATTERN);
     MatAXPY(tempMat, 1.0, globalMassMat, DIFFERENT_NONZERO_PATTERN);
 
@@ -217,18 +278,18 @@ void Solver::computeFirstStep(){
     //Impose Dirichlet Conditions
     applyDirichletConditions(&tempMat, &tempVec, false);
 
+    //Solve system
     KSP solver;
     KSPCreate(PETSC_COMM_WORLD, &solver);
     KSPSetOperators(solver, tempMat, tempMat);
     KSPSetType(solver, KSPGMRES);
     KSPSetFromOptions(solver);
-
     KSPSolve(solver, tempVec, vint);
+    VecCopy(vint, velocityVec);
 
+    //Cleanup
     VecDestroy(&tempVec);
     MatDestroy(&tempMat);
-
-    VecCopy(vint, velocityVec);
     VecDestroy(&vint);
     KSPDestroy(&solver);
 }

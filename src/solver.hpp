@@ -16,6 +16,7 @@ class Solver {
         void localToGlobalMat(int type);
         void localToGlobalVec(bool full);
         void applyDirichletConditions(Mat *m, Vec *v, bool full);
+        void applyStabilisation(Mat* convMat);
     public:
         Solver(Mesh* msh, double dt, double visc);
         void assembleMatrices();
