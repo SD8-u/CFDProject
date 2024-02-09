@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.tri import Triangulation
 import numpy as np
 
-x, y, u, v, p = bloodflow.computeFlow(4, 100, 1, 0.0001, 10)
+x, y, u, v, p = bloodflow.computeFlow(5, 1000, 5, 0.00001, 0.05)
 
 x1 = []
 y1 = []
@@ -27,5 +27,5 @@ plt.xlabel('X')
 plt.ylabel('Y')
 plt.title('Fluid Vector Field')
 plt.grid(True)
-plt.savefig('fluid_plot4.png', dpi=500)
+plt.savefig('fluid_plot2.png', dpi=500)
 plt.close() 

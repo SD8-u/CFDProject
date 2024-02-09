@@ -97,7 +97,8 @@ void Solver::applyStabilisation(Mat* convMat){
     for(size_t elementTag : msh->elementTags[0]){
         //Compute element level SUPG parameter
         double x[3], y[3];
-        double avgU, avgV;
+        double avgU = 0;
+        double avgV = 0;
         int n = 0;
         for(size_t node : msh->elements[elementTag]){
             if(n < 3){
@@ -118,14 +119,17 @@ void Solver::applyStabilisation(Mat* convMat){
         double convCentrVel = sqrt(avgU * avgU + avgV * avgV);
 
         double supgParam = (elemSize/(2 * convCentrVel)) * 
-        1/(sqrt(1 + ((6 * viscosity)/(elemSize * convCentrVel))));
+        (1/(sqrt(1 + ((6 * viscosity)/(elemSize * convCentrVel)))));
 
         //Scale elements by param in global convection matrix to form SUPG stable term
         Vec supgScaler;
         VecCreate(PETSC_COMM_WORLD, &supgScaler);
         VecSetSizes(supgScaler, PETSC_DECIDE, nNodes * 2);
         VecSetFromOptions(supgScaler);
-        VecZeroEntries(supgScaler);
+
+        for(int x = 0; x < nNodes * 2; x++){
+            VecSetValue(supgScaler, x, 1.0, INSERT_VALUES);
+        }
 
         for(size_t node : msh->elements[elementTag]){
             VecSetValue(supgScaler, msh->nodes[node].id, supgParam, INSERT_VALUES);
@@ -260,9 +264,10 @@ void Solver::computeFirstStep(){
     MatConvert(globalConvMat, MATSAME, MAT_INITIAL_MATRIX, &tempMat);
 
     //SUPG computation
-    MatConvert(globalConvMat, MATSAME, MAT_INITIAL_MATRIX, &stabMat);
-    applyStabilisation(&stabMat);
-    MatAXPY(tempMat, 1.0, stabMat, SAME_NONZERO_PATTERN);
+    //MatConvert(globalConvMat, MATSAME, MAT_INITIAL_MATRIX, &stabMat);
+    //applyStabilisation(&stabMat);
+    //MatAXPY(tempMat, 1.0, stabMat, SAME_NONZERO_PATTERN);
+    //MatView(stabMat, PETSC_VIEWER_STDOUT_WORLD);
     MatDestroy(&stabMat);
     
     MatDiagonalScale(tempMat, NULL, velocityVec);

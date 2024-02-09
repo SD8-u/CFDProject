@@ -46,7 +46,6 @@ vector<Mat> getBasisMatrix(vector<double> gaussPoints, vector<double> basisFuncs
                 }
             }
         }
-
         MatAssemblyBegin(basisMats[m], MAT_FINAL_ASSEMBLY);
         MatAssemblyEnd(basisMats[m], MAT_FINAL_ASSEMBLY);
         m++;
@@ -273,7 +272,7 @@ Mat computeConvectionMatrix(size_t elementTag){
             for(int gp = 0; gp < 36; gp+=6){
                 PetscScalar matVal;
                 MatGetValue(convMats[w], i, j, &matVal);
-                convVal +=  (matVal * gaussWeights[w] * jdets[w]);
+                convVal +=  (matVal * gaussWeights[w] * jdets[w++]);
             }
             
             MatSetValue(convectionMatrix, i, j, convVal, INSERT_VALUES);
