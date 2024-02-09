@@ -10,7 +10,7 @@
 
 using namespace std;
 
-Mat computeMassMatrix(size_t elementTag);
+Mat computeMassMatrix(size_t elementTag, bool inverse, bool full);
 Mat computeViscosityMatrix(size_t elementTag);
 Mat computeConvectionMatrix(size_t elementTag);
 Mat computeGradientMatrix(size_t elementTag);

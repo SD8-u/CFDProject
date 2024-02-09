@@ -123,7 +123,7 @@ vector<Mat> computeBasisGradMatrix(vector<double> basisFuncsGrad, vector<double>
     return basisGradMat;
 }
 
-Mat computeMassMatrix(size_t elementTag){
+Mat computeMassMatrix(size_t elementTag, bool inverse, bool full){
     vector<double> coords;
     vector<double> gaussPoints;
     vector<double> gaussWeights;
@@ -151,8 +151,9 @@ Mat computeMassMatrix(size_t elementTag){
 
     //Enumerate the matrix
     for(int i = 0; i < 12; i++){
+        PetscScalar massVal = 0.0;
         for(int j = 0; j < 12; j++){
-            PetscScalar massVal = 0.0;
+            if(full) { massVal = 0.0; }
             int w = 0;
             int offset = (j > 5 && i > 5) ? 6 : 0;
             
@@ -163,7 +164,16 @@ Mat computeMassMatrix(size_t elementTag){
                     * gaussWeights[w] * jdets[w++];
                 }
             }
-            MatSetValue(massMatrix, i, j, massVal, INSERT_VALUES);
+            if(full){
+                MatSetValue(massMatrix, i, j, massVal, INSERT_VALUES);
+            }
+        }
+        if(inverse){
+            massVal = 1/massVal;
+        }
+
+        if(!full){
+            MatSetValue(massMatrix, i, i, massVal, INSERT_VALUES);
         }
     }
 
@@ -264,6 +274,7 @@ Mat computeConvectionMatrix(size_t elementTag){
     for(int m = 0; m < basisMats.size(); m++){
         MatMatMult(basisMats[m], basisGradMats[m], MAT_INITIAL_MATRIX, PETSC_DEFAULT, &convMats[m]);
     }
+    
 
     for(int i = 0; i < 12; i++){
         for(int j = 0; j < 12; j++){
@@ -273,7 +284,7 @@ Mat computeConvectionMatrix(size_t elementTag){
             for(int gp = 0; gp < 36; gp+=6){
                 PetscScalar matVal;
                 MatGetValue(convMats[w], i, j, &matVal);
-                convVal +=  (matVal * gaussWeights[w] * jdets[w]);
+                convVal +=  (1.5 * matVal * gaussWeights[w] * jdets[w]);
             }
             
             MatSetValue(convectionMatrix, i, j, convVal, INSERT_VALUES);
@@ -341,7 +352,7 @@ Mat computeGradientMatrix(size_t elementTag){
 
 Mat computeFinalMatrix(size_t elementTag, double dt){
 
-    Mat massMat = computeMassMatrix(elementTag);
+    Mat massMat = computeMassMatrix(elementTag, false, false);
     MatScale(massMat, dt);
     Mat gradMat = computeGradientMatrix(elementTag);
 
