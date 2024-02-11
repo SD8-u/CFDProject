@@ -4,17 +4,16 @@ using namespace std;
 
 // Load Gmsh script and generate square mesh
 Mesh* generateMesh(int refinement, double vel){
-   gmsh::merge("geometry/example.geo");
+   gmsh::merge("geometry/Aneurysm15.vtk");
    gmsh::model::geo::synchronize();
    gmsh::model::mesh::generate(2);
 
    //Refine mesh uniformly
    for(int x = 0; x < refinement; x++)
       gmsh::model::mesh::refine();
-   
+
    //Construct quadratic triangle elements
    gmsh::model::mesh::setOrder(2);
-
    gmsh::write("geometry/example.msh");
 
    return new Mesh("geometry/example.msh", vel);
@@ -57,7 +56,10 @@ PYBIND11_MODULE(bloodflow, m) {
 
 int main(int argc, char **argv)
 {
-   computeFlow(3, 200, 100, 0.001, 10);
+   gmsh::initialize();
+   generateMesh(1, 1);
+   gmsh::fltk::run();
+   gmsh::finalize();
 
    return 0;
 }

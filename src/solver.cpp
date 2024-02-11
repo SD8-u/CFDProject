@@ -52,10 +52,10 @@ void Solver::applyDirichletConditions(Mat *m, Vec *v, bool expl){
 
     for(int i = 0; i < nNodes; i++){
         Node n = msh->nodes[msh->nodeIds[i]];
-        if(n.boundary || n.inlet) {
+        //if(n.boundary || n.inlet) {
             VecSetValue(*v, i, n.velocity[0], INSERT_VALUES);
             VecSetValue(*v, i + nNodes, n.velocity[1], INSERT_VALUES);
-        }
+        //}
     }
 
     if(!expl){

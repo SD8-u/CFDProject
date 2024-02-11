@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.tri import Triangulation
 import numpy as np
 
-x, y, u, v, p = bloodflow.computeFlow(4, 10, 20, 0.0001, 1000)
+x, y, u, v, p = bloodflow.computeFlow(2, 1, 20, 0.0001, 1000)
 
 x1 = []
 y1 = []
@@ -19,9 +19,6 @@ contour_plot = plt.tricontourf(tri, p1, cmap='viridis')
 plt.colorbar(contour_plot, label='Pressure')
 
 plt.quiver(x, y, u, v, color='red')
-
-#for i in range(len(p1)):
-    #print(p1[i])
 
 plt.xlabel('X')
 plt.ylabel('Y')

@@ -45,22 +45,22 @@ Mesh::Mesh(string filePath, double boundaryVel){
             {0}, {0, 0}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
         }
     }
-    
+
     //Retrieve fluid nodes
     int fluidTag = 3;
-    gmsh::model::mesh::getNodesForPhysicalGroup(2, fluidTag, nodeTags, nodeCoords);
+    gmsh::model::mesh::getNodes(nodeTags, nodeCoords, paramCoords);
     for(int node = 0; node < nodeCoords.size()/3; node++){
         if(nodes.find(nodeTags[node]) == nodes.end()){
             nodeIds[nId] = nodeTags[node];
             nodes[nodeTags[node]] = Node{nId++, -1, false, false, 
-            {0}, {0, 0}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
+            {0}, {1, 0}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
         }
     }
-    
+
     //Encode element connectivity
     vector<int> elementTypes;
     vector<vector<size_t>> elementNodeTags;
-    gmsh::model::mesh::getElements(elementTypes, elementTags, elementNodeTags, 2, -1);
+    gmsh::model::mesh::getElements(elementTypes, elementTags, elementNodeTags, -1, -1);
     unordered_set<size_t> pNodes;
 
     for(int element = 0; element < elementTags[0].size(); element++){
