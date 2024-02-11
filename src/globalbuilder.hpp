@@ -13,5 +13,6 @@ class GlobalBuilder {
         Mat globalConvMat;
         Mat globalFullMat;
         GlobalBuilder(int dim, Mesh *msh);
+        void assembleVectors();
         void assembleMatrices();
 };

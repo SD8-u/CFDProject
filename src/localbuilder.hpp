@@ -11,15 +11,31 @@ class LocalBuilder {
             0.111690794839, 0.111690794839, 0.111690794839, 
             0.054975871827, 0.054975871827, 0.054975871827
         };
+
+        size_t elementTag;
+        Mat localGradMat;
+        vector<Mat> basisMats;
+        vector<Mat> basisGradMats;
+        vector<Mat> inverseJacobian;
+        vector<double> basisFuncs;
+        vector<double> basisFuncsGrad;
+        vector<double> j;
+        vector<double> jdets;
+
         void computeGradientMatrix();
+        void computeMassMatrix();
+        void computeViscosityMatrix();
+        void computeConvectionMatrix();
+        void computeFinalMatrix();
+        void buildBasisMatrix();
+        void buildBasisGradMatrix();
+        void buildInverseJacobian();
     public:
         Mat localMassMat;
         Mat localViscMat;
         Mat localConvMat;
         Mat localFullMat;
-        LocalBuilder(size_t elementTag);
-        void computeMassMatrix();
-        void computeViscosityMatrix();
-        void computeConvectionMatrix();
-        void computeFinalMatrix();
+
+        LocalBuilder();
+        void assembleMatrices(size_t elementTag);
 };
