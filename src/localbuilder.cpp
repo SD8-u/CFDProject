@@ -247,6 +247,7 @@ void LocalBuilder::computeGradientMatrix(){
 }
 
 void LocalBuilder::computeFinalMatrix(){
+    MatScale(localMassMat, dt);
     Mat localGradTMat;
 
     MatTranspose(localGradMat, MAT_INITIAL_MATRIX, &localGradTMat);
@@ -285,6 +286,7 @@ void LocalBuilder::computeFinalMatrix(){
     MatAssemblyEnd(localFullMat, MAT_FINAL_ASSEMBLY);
 
     MatDestroy(&localGradTMat);
+    MatScale(localMassMat, 1/dt);
 }
 
 void LocalBuilder::assembleMatrices(size_t elementTag){

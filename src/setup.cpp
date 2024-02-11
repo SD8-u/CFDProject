@@ -57,7 +57,7 @@ PYBIND11_MODULE(bloodflow, m) {
 
 int main(int argc, char **argv)
 {
-   computeFlow(3, 200, 100, 0.001, 10);
+   computeFlow(3, 1, 100, 0.001, 10);
 
    return 0;
 }

@@ -17,7 +17,7 @@ void getIntegrationPoints(int type, vector<double> &gaussPoints, vector<double> 
     }
 }
 
-void cleanUp(vector<Mat> matrices){
+void cleanUp1(vector<Mat> matrices){
     for(Mat m : matrices){
         MatDestroy(&m);
     }
@@ -117,7 +117,7 @@ vector<Mat> computeBasisGradMatrix(vector<double> basisFuncsGrad, vector<double>
 
         m++;
     }
-    cleanUp(inverseJacob);
+    cleanUp1(inverseJacob);
 
     return basisGradMat;
 }
@@ -226,9 +226,9 @@ Mat computeViscosityMatrix(size_t elementTag){
     MatAssemblyEnd(viscosityMatrix, MAT_FINAL_ASSEMBLY);
 
     // Clean up matrices
-    cleanUp(basisGradMats);
-    cleanUp(basisGradMatsT);
-    cleanUp(viscMats);
+    cleanUp1(basisGradMats);
+    cleanUp1(basisGradMatsT);
+    cleanUp1(viscMats);
     return viscosityMatrix;
 }
 
@@ -283,9 +283,9 @@ Mat computeConvectionMatrix(size_t elementTag){
     MatAssemblyEnd(convectionMatrix, MAT_FINAL_ASSEMBLY);
 
     // Clean up matrices
-    cleanUp(basisMats);
-    cleanUp(basisGradMats);
-    cleanUp(convMats);
+    cleanUp1(basisMats);
+    cleanUp1(basisGradMats);
+    cleanUp1(convMats);
     return convectionMatrix;
 }
 
@@ -333,7 +333,7 @@ Mat computeGradientMatrix(size_t elementTag){
     MatAssemblyEnd(gradientMatrix, MAT_FINAL_ASSEMBLY);
 
     // Clean up matrices
-    cleanUp(basisGradMats);
+    cleanUp1(basisGradMats);
 
     return gradientMatrix;
 }

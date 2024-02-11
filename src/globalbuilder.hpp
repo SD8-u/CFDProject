@@ -3,16 +3,21 @@
 
 class GlobalBuilder {
     private:
+        double dt;
+        double viscosity;
         Mesh *msh;
-        LocalBuilder localBuild;
-        void localToGlobalVec();
-        void localToGlobalMat();
+        LocalBuilder *localBuild;
+        void localToGlobalVec(bool full);
+        void localToGlobalMat(size_t elementTag, Mat *localMat, Mat *globalMat, bool final);
     public:
+        Vec nodalVec;
+        Vec velocityVec;
         Mat globalMassMat;
         Mat globalViscMat;
         Mat globalConvMat;
         Mat globalFullMat;
-        GlobalBuilder(int dim, Mesh *msh);
+        GlobalBuilder(int dim, double dt, double visc, Mesh *msh);
+        ~GlobalBuilder();
         void assembleVectors();
         void assembleMatrices();
 };

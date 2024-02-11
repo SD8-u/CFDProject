@@ -38,5 +38,6 @@ class LocalBuilder {
         Mat localFullMat;
 
         LocalBuilder(double dt);
+        ~LocalBuilder();
         void assembleMatrices(size_t elementTag);
 };
