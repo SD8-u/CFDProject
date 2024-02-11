@@ -12,6 +12,7 @@ class LocalBuilder {
             0.054975871827, 0.054975871827, 0.054975871827
         };
 
+        double dt;
         size_t elementTag;
         Mat localGradMat;
         vector<Mat> basisMats;
@@ -36,6 +37,6 @@ class LocalBuilder {
         Mat localConvMat;
         Mat localFullMat;
 
-        LocalBuilder();
+        LocalBuilder(double dt);
         void assembleMatrices(size_t elementTag);
 };

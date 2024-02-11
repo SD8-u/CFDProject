@@ -6,7 +6,8 @@ void cleanUp(vector<Mat> matrices){
     }
 }
 
-LocalBuilder::LocalBuilder(){
+LocalBuilder::LocalBuilder(double dt){
+    this->dt = dt;
     int nComponents;
     int nOrientations;
     MatCreate(PETSC_COMM_WORLD, &localMassMat);
@@ -50,6 +51,17 @@ LocalBuilder::LocalBuilder(){
     gmsh::model::mesh::getBasisFunctions(9, gaussPoints, "GradLagrange", 
     nComponents, basisFuncsGrad, nOrientations);
     buildBasisMatrix();
+}
+
+LocalBuilder::~LocalBuilder(){
+    MatDestroy(&localGradMat);
+    MatDestroy(&localMassMat);
+    MatDestroy(&localViscMat);
+    MatDestroy(&localConvMat);
+    MatDestroy(&localFullMat);
+    cleanUp(basisMats);
+    cleanUp(basisGradMats);
+    cleanUp(inverseJacobian);
 }
 
 void LocalBuilder::buildBasisMatrix(){
@@ -119,12 +131,12 @@ void LocalBuilder::buildBasisGradMatrix(){
         MatDestroy(&temp);
         MatAssemblyBegin(basisGradMats[m], MAT_FINAL_ASSEMBLY);
         MatAssemblyEnd(basisGradMats[m], MAT_FINAL_ASSEMBLY);
-
         m++;
     }
 }
 
 void LocalBuilder::computeMassMatrix(){
+    MatZeroEntries(localMassMat);
     //Enumerate the matrix
     for(int i = 0; i < 12; i++){
         for(int j = 0; j < 12; j++){
@@ -148,6 +160,7 @@ void LocalBuilder::computeMassMatrix(){
 }
 
 void LocalBuilder::computeViscosityMatrix(){
+    MatZeroEntries(localViscMat);
     vector<Mat> basisGradMatsT = vector<Mat>(basisGradMats.size());
     vector<Mat> viscMats = vector<Mat>(basisGradMats.size());
 
@@ -184,6 +197,7 @@ void LocalBuilder::computeViscosityMatrix(){
 }
 
 void LocalBuilder::computeConvectionMatrix(){
+    MatZeroEntries(localConvMat);
     vector<Mat> convMats = vector<Mat>(basisMats.size());
 
     for(int m = 0; m < basisMats.size(); m++){
@@ -213,6 +227,7 @@ void LocalBuilder::computeConvectionMatrix(){
 }
 
 void LocalBuilder::computeGradientMatrix(){
+    MatZeroEntries(localGradMat);
     for(int i = 0; i < 3; i++){
         for(int j = 0; j < 12; j++){
             int w = 0;
@@ -231,6 +246,47 @@ void LocalBuilder::computeGradientMatrix(){
     MatAssemblyEnd(localGradMat, MAT_FINAL_ASSEMBLY);
 }
 
+void LocalBuilder::computeFinalMatrix(){
+    Mat localGradTMat;
+
+    MatTranspose(localGradMat, MAT_INITIAL_MATRIX, &localGradTMat);
+
+    for(int i = 0; i < 12; i++){
+        for(int j = 0; j < 12; j++){
+            PetscScalar matVal;
+            MatGetValue(localMassMat, i, j, &matVal);
+            MatSetValue(localFullMat, i, j, matVal, INSERT_VALUES);
+        }
+    }
+
+    for(int i = 0; i < 12; i++){
+        for(int j = 12; j < 15; j++){
+            PetscScalar matVal;
+            MatGetValue(localGradMat, i, j - 12, &matVal);
+            MatSetValue(localFullMat, i, j, matVal, INSERT_VALUES);
+        }
+    }
+
+    for(int i = 12; i < 15; i++){
+        for(int j = 0; j < 12; j++){
+            PetscScalar matVal;
+            MatGetValue(localGradTMat, i - 12, j, &matVal);
+            MatSetValue(localFullMat, i, j, matVal, INSERT_VALUES);
+        }
+    }
+
+    for(int i = 12; i < 15; i++){
+        for(int j = 12; j < 15; j++){
+            MatSetValue(localFullMat, i, j, 0, INSERT_VALUES);
+        }
+    }
+
+    MatAssemblyBegin(localFullMat, MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(localFullMat, MAT_FINAL_ASSEMBLY);
+
+    MatDestroy(&localGradTMat);
+}
+
 void LocalBuilder::assembleMatrices(size_t elementTag){
     this->elementTag = elementTag;
 
@@ -243,5 +299,6 @@ void LocalBuilder::assembleMatrices(size_t elementTag){
     computeMassMatrix();
     computeViscosityMatrix();
     computeConvectionMatrix();
+    computeGradientMatrix();
     computeFinalMatrix();
 }
