@@ -92,57 +92,6 @@ void Solver::localToGlobalVec(bool full){
     }
 }
 
-//Add SUPG to convection term
-void Solver::applyStabilisation(Mat* convMat){
-    for(size_t elementTag : msh->elementTags[0]){
-        //Compute element level SUPG parameter
-        double x[3], y[3];
-        double avgU = 0;
-        double avgV = 0;
-        int n = 0;
-        for(size_t node : msh->elements[elementTag]){
-            if(n < 3){
-                x[n] = msh->nodes[node].x;
-                y[n++] = msh->nodes[node].y;
-            }
-            PetscInt iU = msh->nodes[node].id;
-            PetscInt iV = msh->nodes[node].id + nNodes;
-            PetscScalar u, v;
-            VecGetValues(velocityVec, 1, &iU, &u);
-            VecGetValues(velocityVec, 1, &iV, &v);
-            avgU += u;
-            avgV += v;
-        }
-        avgU /= 6; avgV /= 6;
-        double elemSize = sqrt(0.5 * (x[0] * (y[1] - y[2]) + x[1] * 
-        (y[2] - y[0]) + x[2] * (y[0] - y[1])));
-        double convCentrVel = sqrt(avgU * avgU + avgV * avgV);
-
-        double supgParam = (elemSize/(2 * convCentrVel)) * 
-        (1/(sqrt(1 + ((6 * viscosity)/(elemSize * convCentrVel)))));
-
-        //Scale elements by param in global convection matrix to form SUPG stable term
-        Vec supgScaler;
-        VecCreate(PETSC_COMM_WORLD, &supgScaler);
-        VecSetSizes(supgScaler, PETSC_DECIDE, nNodes * 2);
-        VecSetFromOptions(supgScaler);
-
-        for(int x = 0; x < nNodes * 2; x++){
-            VecSetValue(supgScaler, x, 1.0, INSERT_VALUES);
-        }
-
-        for(size_t node : msh->elements[elementTag]){
-            VecSetValue(supgScaler, msh->nodes[node].id, supgParam, INSERT_VALUES);
-            VecSetValue(supgScaler, msh->nodes[node].id + nNodes, supgParam, INSERT_VALUES);
-        }
-
-        VecAssemblyBegin(supgScaler);
-        VecAssemblyEnd(supgScaler);
-        MatDiagonalScale(*convMat, supgScaler, supgScaler);
-        VecDestroy(&supgScaler);
-    }
-}
-
 void Solver::localToGlobalMat(int type){
     for(size_t elementTag : msh->elementTags[0]){
 

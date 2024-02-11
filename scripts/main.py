@@ -3,13 +3,13 @@ import matplotlib.pyplot as plt
 from matplotlib.tri import Triangulation
 import numpy as np
 
-x, y, u, v, p = bloodflow.computeFlow(4, 10, 20, 0.0001, 1000)
+x, y, u, v, p = bloodflow.computeFlow(4, 10, 2, 0.0001, 1)
 
 x1 = []
 y1 = []
 p1 = []
 for i in range(len(p)):
-    if p[i] != -1 and p[i] < 1000000:
+    if p[i] != -1 and p[i] < np.inf:
         x1.append(x[i])
         y1.append(y[i])
         p1.append(p[i])
