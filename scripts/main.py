@@ -3,16 +3,19 @@ import matplotlib.pyplot as plt
 from matplotlib.tri import Triangulation
 import numpy as np
 
-x, y, u, v, p = bloodflow.computeFlow(4, 1, 1, 0.0001, 1000)
+x, y, u, v, p = bloodflow.computeFlow(5, 100, 1, 0.0001, 1000)
 
 x1 = []
 y1 = []
 p1 = []
 for i in range(len(p)):
-    if p[i] != -1 and p[i] < 999999:
+    if p[i] != -1 and p[i] < 3000:
         x1.append(x[i])
         y1.append(y[i])
         p1.append(p[i])
+    if p[i] >= 2000:
+        print(i)
+print(len(p))
 
 tri = Triangulation(x1, y1)
 contour_plot = plt.tricontourf(tri, p1, cmap='viridis') 

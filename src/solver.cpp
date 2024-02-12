@@ -20,9 +20,6 @@ Solver::Solver(Mesh* msh, double dt, double viscosity){
     KSPSetType(stp2Solver, KSPGMRES);
     KSPSetOperators(stp2Solver, globalBuild->globalFullMat, globalBuild->globalFullMat);
     KSPSetFromOptions(stp2Solver);
-    //cout << "WHY\n";
-    //MatView(globalBuild->globalViscMat, PETSC_VIEWER_STDOUT_WORLD);
-    //cout << "4\n";
 }
 
 void Solver::applyDirichletConditions(Mat *m, Vec *v, bool expl){
@@ -90,6 +87,7 @@ void Solver::computeFirstStep(){
     VecDestroy(&tempVec);
     VecDestroy(&vint);
     MatDestroy(&tempMat);
+    KSPDestroy(&stp1Solver);
 }
 
 void Solver::computeSecondStep(){
@@ -159,4 +157,58 @@ vector<vector<double>> Solver::computeTimeStep(int steps){
         }
     }
     return fluid;
+}
+
+vector<vector<double>> Solver::interpolateSolution(double resolution){
+    vector<vector<double>> solData = vector<vector<double>>(5);
+    size_t elementTag;
+    int elementType;
+    vector<size_t> nodeTags;
+    double u, v, w;
+    double xmax, ymax, zmax;
+    double xmin, ymin, zmin;
+    int nComp, nOrien;
+    vector<double> coord, basisFuncsVel, basisFuncsPre;
+    
+    gmsh::model::getBoundingBox(-1, -1, xmin, ymin, zmin, xmax, ymax, zmax);
+    for(int y = ymin; y < ymax; y+=resolution){
+        for(int x = xmin; x < xmax; x+=resolution){
+            double nodePre, nodeVx, nodeVy;
+            double pressure = 0, xv = 0, yv = 0;
+
+            gmsh::model::mesh::getElementByCoordinates(x, y, 0, elementTag, 
+            elementType, nodeTags, u, v, w, -1, true);
+            if(!elementTag) {continue;}
+
+            coord.push_back(u); coord.push_back(v); coord.push_back(w);
+
+            gmsh::model::mesh::getBasisFunctions(2, coord, "Lagrange", nComp, 
+            basisFuncsPre, nOrien);
+            gmsh::model::mesh::getBasisFunctions(9, coord, "Lagrange", nComp, 
+            basisFuncsVel, nOrien);
+            
+            for(int node = 0; node < nodeTags.size(); node++){
+
+                PetscInt pi = msh->nodes[nodeTags[node]].pid + msh->nNodes * 2;
+                PetscInt vxi = msh->nodes[nodeTags[node]].id;
+                PetscInt vyi = vxi + msh->nNodes;
+
+                VecGetValues(globalBuild->nodalVec, 1, &vxi, &nodeVx);
+                VecGetValues(globalBuild->nodalVec, 1, &vyi, &nodeVy);
+                VecGetValues(globalBuild->nodalVec, 1, &pi, &nodePre);
+                if(node < 3){
+                    pressure += basisFuncsPre[node] * nodePre;
+                }
+
+                xv += basisFuncsVel[node] * nodeVx;
+                yv += basisFuncsVel[node] * nodeVy;
+            }
+            
+            solData[0].push_back(pressure); solData[1].push_back(xv);
+            solData[2].push_back(yv); solData[3].push_back(x);
+            solData[4].push_back(y);
+            coord.clear();
+        }
+    }
+    return solData;
 }
