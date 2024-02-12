@@ -15,6 +15,6 @@ class Solver {
         Solver(Mesh* msh, double dt, double visc);
         void computeFirstStep();
         void computeSecondStep();
-        vector<vector<double>> computeTimeStep(int steps);
+        void computeTimeStep(int steps);
         vector<vector<double>> interpolateSolution(double resolution);
 };

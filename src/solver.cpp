@@ -126,41 +126,15 @@ void Solver::computeSecondStep(){
     VecDestroy(&tempVec);
 }
 
-vector<vector<double>> Solver::computeTimeStep(int steps){
-    vector<vector<double>> fluid = vector<vector<double>>(3);
+void Solver::computeTimeStep(int steps){
     for(int x = 0; x < steps; x++){
         this->computeFirstStep();
         this->computeSecondStep();
         cout << "Step: " << x << "\n";
     }
-
-    for(int i = 0; i < msh->nNodes; i++){
-        PetscInt iu = i;
-        PetscInt iv = i + msh->nNodes;
-        PetscScalar u;
-        PetscScalar v;
-
-        VecGetValues(globalBuild->nodalVec, 1, &iu, &u);
-        VecGetValues(globalBuild->nodalVec, 1, &iv, &v);
-
-        fluid[0].push_back(u);
-        fluid[1].push_back(v);
-        fluid[2].push_back(-1);
-    }
-
-    for(int i = 0; i < msh->nNodes; i++){
-        PetscInt ip = i + msh->nNodes * 2;
-        PetscScalar p;
-        VecGetValues(globalBuild->nodalVec, 1, &ip, &p);
-        if(msh->nodes[msh->nodeIds[i]].pid != -1){
-            fluid[2][i] = p;
-        }
-    }
-    return fluid;
 }
 
 vector<vector<double>> Solver::interpolateSolution(double resolution){
-    vector<vector<double>> solData = vector<vector<double>>(5);
     size_t elementTag;
     int elementType;
     vector<size_t> nodeTags;
@@ -169,10 +143,13 @@ vector<vector<double>> Solver::interpolateSolution(double resolution){
     double xmin, ymin, zmin;
     int nComp, nOrien;
     vector<double> coord, basisFuncsVel, basisFuncsPre;
-    
+    vector<vector<double>> solData = vector<vector<double>>(5);
+
     gmsh::model::getBoundingBox(-1, -1, xmin, ymin, zmin, xmax, ymax, zmax);
-    for(int y = ymin; y < ymax; y+=resolution){
-        for(int x = xmin; x < xmax; x+=resolution){
+    cout << "xmin: " << xmin << " xmax: " << xmax << "\n";
+    cout << "ymin: " << ymin << " ymax: " << ymax << "\n";
+    for(double x = xmin; x < xmax; x+=resolution){
+        for(double y = ymin; y < ymax; y+=resolution){
             double nodePre, nodeVx, nodeVy;
             double pressure = 0, xv = 0, yv = 0;
 

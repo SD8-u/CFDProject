@@ -27,15 +27,15 @@ pybind11::tuple computeFlow(int refinement, int steps, double vel, double dt, do
    Mesh *msh = generateMesh(refinement, vel);
    Solver* solver = new Solver(msh, dt, visc);
 
-   vector<vector<double>> fluid = solver->computeTimeStep(steps);
-   vector<vector<double>> coord = msh->getNodeCoords();
+   solver->computeTimeStep(steps);
+   vector<vector<double>> solData = solver->interpolateSolution(0.03);
 
-   pybind11::array_t<double> np_X(coord[0].size(), coord[0].data());
-   pybind11::array_t<double> np_Y(coord[1].size(), coord[1].data());   
+   pybind11::array_t<double> np_X(solData[3].size(), solData[3].data());
+   pybind11::array_t<double> np_Y(solData[4].size(), solData[4].data());   
 
-   pybind11::array_t<double> np_U(fluid[0].size(), fluid[0].data());
-   pybind11::array_t<double> np_V(fluid[1].size(), fluid[1].data());
-   pybind11::array_t<double> np_P(fluid[2].size(), fluid[2].data());
+   pybind11::array_t<double> np_U(solData[1].size(), solData[1].data());
+   pybind11::array_t<double> np_V(solData[2].size(), solData[2].data());
+   pybind11::array_t<double> np_P(solData[0].size(), solData[0].data());
 
    pybind11::tuple result(5);
    result[0] = np_X;
