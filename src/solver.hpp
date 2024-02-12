@@ -1,26 +1,18 @@
 #include <petsc.h>
 #include "compute.hpp"
+#include "globalbuilder.hpp"
 
 class Solver {
     private:
-        int nNodes;
         double dt;
         double viscosity;
-        Mat globalMassMat;
-        Mat globalViscMat;
-        Mat globalConvMat;
-        Mat globalFullMat;
-        Vec velocityVec;
-        Vec nodalVec;
+        KSP stp1Solver;
+        KSP stp2Solver;
         Mesh *msh;
-        void localToGlobalMat(int type);
-        void localToGlobalVec(bool full);
+        GlobalBuilder *globalBuild;
         void applyDirichletConditions(Mat *m, Vec *v, bool full);
-        void applyStabilisation(Mat* convMat);
     public:
         Solver(Mesh* msh, double dt, double visc);
-        void assembleMatrices();
-        void assembleVector();
         void computeFirstStep();
         void computeSecondStep();
         vector<vector<double>> computeTimeStep(int steps);

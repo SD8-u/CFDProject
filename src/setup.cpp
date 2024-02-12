@@ -26,7 +26,7 @@ pybind11::tuple computeFlow(int refinement, int steps, double vel, double dt, do
 
    Mesh *msh = generateMesh(refinement, vel);
    Solver* solver = new Solver(msh, dt, visc);
-   solver->assembleMatrices();
+
    vector<vector<double>> fluid = solver->computeTimeStep(steps);
    vector<vector<double>> coord = msh->getNodeCoords();
 

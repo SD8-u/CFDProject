@@ -20,4 +20,5 @@ class GlobalBuilder {
         ~GlobalBuilder();
         void assembleVectors();
         void assembleMatrices();
+        void updateVelocity();
 };

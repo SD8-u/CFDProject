@@ -19,6 +19,7 @@ class LocalBuilder {
         vector<Mat> basisGradMats;
         vector<Mat> inverseJacobian;
         vector<double> basisFuncs;
+        vector<double> basisFuncsPres;
         vector<double> basisFuncsGrad;
         vector<double> j;
         vector<double> jdets;

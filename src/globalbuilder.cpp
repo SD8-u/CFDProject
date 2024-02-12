@@ -2,7 +2,7 @@
 
 GlobalBuilder::GlobalBuilder(int dim, double dt, double visc, Mesh* msh){
     this->dt = 1/dt;
-    this->viscosity = viscosity;
+    this->viscosity = visc;
     this->msh = msh;
 
     MatCreate(PETSC_COMM_WORLD, &globalMassMat);
@@ -70,8 +70,6 @@ void GlobalBuilder::localToGlobalMat(size_t elementTag, Mat *localMat, Mat *glob
                 MatSetValue(*globalMat, x, y, matVal, ADD_VALUES);
             }
         }
-        MatAssemblyBegin(*globalMat, MAT_FINAL_ASSEMBLY);
-        MatAssemblyEnd(*globalMat, MAT_FINAL_ASSEMBLY);
 }
 
 void GlobalBuilder::localToGlobalVec(bool full){
@@ -102,19 +100,46 @@ void GlobalBuilder::localToGlobalVec(bool full){
 }
 
 void GlobalBuilder::assembleMatrices(){
-    localBuild = new LocalBuilder(dt);
     for(size_t elementTag : msh->elementTags[0]){
+        localBuild = new LocalBuilder(dt);
         localBuild->assembleMatrices(elementTag);
         localToGlobalMat(elementTag, &localBuild->localMassMat, &globalMassMat);
         localToGlobalMat(elementTag, &localBuild->localViscMat, &globalViscMat);
         localToGlobalMat(elementTag, &localBuild->localConvMat, &globalConvMat);
         localToGlobalMat(elementTag, &localBuild->localFullMat, &globalFullMat, true);
+        delete(localBuild);
     }
+    MatAssemblyBegin(globalMassMat, MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(globalMassMat, MAT_FINAL_ASSEMBLY);
+
+    MatAssemblyBegin(globalViscMat, MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(globalViscMat, MAT_FINAL_ASSEMBLY);
+
+    MatAssemblyBegin(globalConvMat, MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(globalConvMat, MAT_FINAL_ASSEMBLY);
+
+    MatAssemblyBegin(globalFullMat, MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(globalFullMat, MAT_FINAL_ASSEMBLY);
+
     MatScale(globalViscMat, viscosity);
-    delete(localBuild);
+    MatScale(globalMassMat, dt);
 }
 
 void GlobalBuilder::assembleVectors(){
     localToGlobalVec(false);
     localToGlobalVec(true);
+}
+
+void GlobalBuilder::updateVelocity(){
+    PetscScalar max = 0;
+    for(int i = 0; i < msh->nNodes * 2; i++){
+        PetscInt ind = i;
+        PetscScalar val;
+        VecGetValues(nodalVec, 1, &ind, &val);
+        max = val > max ? val : max;
+        VecSetValue(velocityVec, i, val, INSERT_VALUES);
+    }
+    cout << "MAX (instability metric): " << max << "\n";
+    VecAssemblyBegin(velocityVec);
+    VecAssemblyEnd(velocityVec);
 }

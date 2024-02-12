@@ -8,13 +8,20 @@ void cleanUp(vector<Mat> matrices){
 
 LocalBuilder::LocalBuilder(double dt){
     this->dt = dt;
+    inverseJacobian = vector<Mat>(6);
+    basisGradMats = vector<Mat>(6);
+    basisMats = vector<Mat>(6);
+    j = vector<double>();
+    jdets = vector<double>();
+    basisFuncs = vector<double>();
+    basisFuncsGrad = vector<double>();
+
     int nComponents;
     int nOrientations;
     MatCreate(PETSC_COMM_WORLD, &localMassMat);
     MatSetSizes(localMassMat, PETSC_DECIDE, PETSC_DECIDE, 12, 12);
     MatSetFromOptions(localMassMat);
     MatSetUp(localMassMat);
-
     MatDuplicate(localMassMat, MAT_DO_NOT_COPY_VALUES, &localViscMat);
     MatDuplicate(localMassMat, MAT_DO_NOT_COPY_VALUES, &localConvMat);
 
@@ -46,8 +53,10 @@ LocalBuilder::LocalBuilder(double dt){
         MatSetUp(basisMats[m]);
     }
 
-    gmsh::model::mesh::getBasisFunctions(2, gaussPoints, "Lagrange", 
+    gmsh::model::mesh::getBasisFunctions(9, gaussPoints, "Lagrange", 
     nComponents, basisFuncs, nOrientations);
+    gmsh::model::mesh::getBasisFunctions(2, gaussPoints, "Lagrange", 
+    nComponents, basisFuncsPres, nOrientations);
     gmsh::model::mesh::getBasisFunctions(9, gaussPoints, "GradLagrange", 
     nComponents, basisFuncsGrad, nOrientations);
     buildBasisMatrix();
@@ -65,7 +74,6 @@ LocalBuilder::~LocalBuilder(){
 }
 
 void LocalBuilder::buildBasisMatrix(){
-    basisMats = vector<Mat>(basisFuncs.size()/6);
     int m = 0;
     for(int point = 0; point < basisFuncs.size(); point+=6){
         for(int i = 0; i < 12; i++){
@@ -183,6 +191,7 @@ void LocalBuilder::computeViscosityMatrix(){
                 PetscScalar matVal;
                 MatGetValue(viscMats[w], i, j, &matVal);
                 viscVal +=  matVal * gaussWeights[w] * jdets[w++];
+                //cout << "VISC: " << viscVal;
             }
             MatSetValue(localViscMat, i, j, viscVal, INSERT_VALUES);
         }
@@ -199,11 +208,9 @@ void LocalBuilder::computeViscosityMatrix(){
 void LocalBuilder::computeConvectionMatrix(){
     MatZeroEntries(localConvMat);
     vector<Mat> convMats = vector<Mat>(basisMats.size());
-
     for(int m = 0; m < basisMats.size(); m++){
         MatMatMult(basisMats[m], basisGradMats[m], MAT_INITIAL_MATRIX, PETSC_DEFAULT, &convMats[m]);
     }
-
     for(int i = 0; i < 12; i++){
         for(int j = 0; j < 12; j++){
             PetscScalar convVal = 0.0;
@@ -218,7 +225,6 @@ void LocalBuilder::computeConvectionMatrix(){
             MatSetValue(localConvMat, i, j, convVal, INSERT_VALUES);
         }
     }
-
     MatAssemblyBegin(localConvMat, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(localConvMat, MAT_FINAL_ASSEMBLY);
 
@@ -236,7 +242,7 @@ void LocalBuilder::computeGradientMatrix(){
             for(int gp = 0; gp < 18; gp+=3){
                 PetscScalar matVal = 0.0;
                 MatGetValue(basisGradMats[w], x, j, &matVal);
-                gradVal += basisFuncs[gp + i] * matVal * gaussWeights[w] * jdets[w++];
+                gradVal += basisFuncsPres[gp + i] * matVal * gaussWeights[w] * jdets[w++];
             }
             MatSetValue(localGradMat, j, i, gradVal, INSERT_VALUES);
         }
@@ -291,13 +297,10 @@ void LocalBuilder::computeFinalMatrix(){
 
 void LocalBuilder::assembleMatrices(size_t elementTag){
     this->elementTag = elementTag;
-
     vector<double> coords;
     gmsh::model::mesh::getJacobian(elementTag, gaussPoints, j, jdets, coords);
-
-    buildBasisGradMatrix();
     buildInverseJacobian();
-
+    buildBasisGradMatrix();
     computeMassMatrix();
     computeViscosityMatrix();
     computeConvectionMatrix();
