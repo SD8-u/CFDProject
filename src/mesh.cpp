@@ -46,9 +46,8 @@ Mesh::Mesh(string filePath, double boundaryVel){
         }
     }
     
-    //Retrieve fluid nodes
-    int fluidTag = 3;
-    gmsh::model::mesh::getNodesForPhysicalGroup(2, fluidTag, nodeTags, nodeCoords);
+    //Retrieve all other nodes
+    gmsh::model::mesh::getNodes(nodeTags, nodeCoords, paramCoords);
     for(int node = 0; node < nodeCoords.size()/3; node++){
         if(nodes.find(nodeTags[node]) == nodes.end()){
             nodeIds[nId] = nodeTags[node];

@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.tri import Triangulation
 import numpy as np
 
-x, y, u, v, p = bloodflow.computeFlow(4, 500, 1, 0.0001, 100)
+x, y, u, v, p = bloodflow.computeFlow(3, 100, 1, 0.0001, 1)
 tri = Triangulation(x, y)
 
 contour_plot = plt.tricontourf(tri, p, cmap='viridis') 
@@ -13,7 +13,6 @@ plt.quiver(x, y, u, v, color='red')
 plt.xlabel('X')
 plt.ylabel('Y')
 plt.title('Fluid Vector Field')
-plt.grid(True)
 plt.savefig('vector_field.png', dpi=500)
 plt.close() 
 
@@ -28,6 +27,5 @@ plt.streamplot(np.unique(x), np.unique(y), u.transpose(),
 plt.xlabel('X')
 plt.ylabel('Y')
 plt.title('Fluid Stream Plot')
-plt.grid(True)
 plt.savefig('stream_plot.png', dpi=500)
 plt.close() 

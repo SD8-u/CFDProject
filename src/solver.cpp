@@ -146,16 +146,16 @@ vector<vector<double>> Solver::interpolateSolution(double resolution){
     vector<vector<double>> solData = vector<vector<double>>(5);
 
     gmsh::model::getBoundingBox(-1, -1, xmin, ymin, zmin, xmax, ymax, zmax);
-    cout << "xmin: " << xmin << " xmax: " << xmax << "\n";
-    cout << "ymin: " << ymin << " ymax: " << ymax << "\n";
     for(double x = xmin; x < xmax; x+=resolution){
         for(double y = ymin; y < ymax; y+=resolution){
             double nodePre, nodeVx, nodeVy;
             double pressure = 0, xv = 0, yv = 0;
 
-            gmsh::model::mesh::getElementByCoordinates(x, y, 0, elementTag, 
-            elementType, nodeTags, u, v, w, -1, true);
-            if(!elementTag) {continue;}
+            try{
+                gmsh::model::mesh::getElementByCoordinates(x, y, 0, elementTag, 
+                elementType, nodeTags, u, v, w, -1, true);
+            }
+            catch(...) {continue;}
 
             coord.push_back(u); coord.push_back(v); coord.push_back(w);
 

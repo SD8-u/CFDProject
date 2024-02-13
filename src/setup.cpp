@@ -17,6 +17,8 @@ Mesh* generateMesh(int refinement, double vel){
 
    gmsh::write("geometry/example.msh");
 
+   gmsh::fltk::run();
+
    return new Mesh("geometry/example.msh", vel);
 }
 
