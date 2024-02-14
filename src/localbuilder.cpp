@@ -219,7 +219,7 @@ void LocalBuilder::computeConvectionMatrix(){
             for(int gp = 0; gp < 36; gp+=6){
                 PetscScalar matVal;
                 MatGetValue(convMats[w], i, j, &matVal);
-                convVal += (matVal * gaussWeights[w] * jdets[w++]);
+                convVal += (1.5 * matVal * gaussWeights[w] * jdets[w++]);
             }
             
             MatSetValue(localConvMat, i, j, convVal, INSERT_VALUES);

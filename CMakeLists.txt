@@ -1,7 +1,9 @@
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.14)
 project(bloodFlowCFD)
 
 set(CMAKE_CXX_COMPILER "/usr/bin/mpic++")
+set(CMAKE_CXX_STANDARD 14)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 # Set the directory containing the source files
 set(SRCDIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
@@ -75,4 +77,28 @@ target_link_libraries(bloodflow PRIVATE
 # Set output directory for the bloodflow module
 set_target_properties(bloodflow PROPERTIES
     LIBRARY_OUTPUT_DIRECTORY ${MODDIR}
+)
+
+# Locate GTest
+find_package(GTest REQUIRED)
+include_directories(
+    ${GTEST_INCLUDE_DIRS}
+    /usr/include/petsc
+    /usr/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
+)
+
+add_executable(runTests 
+    tests/solvertest.cpp 
+    src/globalbuilder.cpp 
+    src/localbuilder.cpp 
+    src/mesh.cpp 
+    src/solver.cpp
+)
+
+target_link_libraries(runTests PRIVATE 
+    petsc
+    stdc++
+    gmsh
+    ${GTEST_LIBRARIES} 
 )

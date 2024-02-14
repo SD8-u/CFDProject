@@ -6,3 +6,4 @@ cmake --build .
 cd ../scripts
 pip install .
 cd ..
+./build/runTests

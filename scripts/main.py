@@ -3,21 +3,23 @@ import matplotlib.pyplot as plt
 from matplotlib.tri import Triangulation
 import numpy as np
 
-x, y, u, v, p = bloodflow.computeFlow(3, 100, 1, 0.0001, 1)
+x, y, u, v, p = bloodflow.computeFlow(3, 100, 1, 0.0001, 0.01)
 tri = Triangulation(x, y)
 
-contour_plot = plt.tricontourf(tri, p, cmap='viridis') 
-plt.colorbar(contour_plot, label='Pressure')
-plt.quiver(x, y, u, v, color='red')
-
+fig = plt.figure()
+ax = fig.add_subplot(111)
+contour_plot = ax.tricontourf(tri, p, cmap='viridis') 
+fig.colorbar(contour_plot, label='Pressure', ax=ax)
+ax.quiver(x, y, u, v, color='red')
+ax.set_aspect('equal')
 plt.xlabel('X')
 plt.ylabel('Y')
 plt.title('Fluid Vector Field')
-plt.savefig('vector_field.png', dpi=500)
+fig.savefig('vector_field.png', dpi=500)
 plt.close() 
 
-u = u.reshape(34, 34)
-v  = v.reshape(34, 34)
+u = u.reshape(len(np.unique(x)), len(np.unique(y)))
+v  = v.reshape(len(np.unique(x)), len(np.unique(y)))
 
 contour_plot = plt.tricontourf(tri, p, cmap='viridis') 
 plt.colorbar(contour_plot, label='Pressure')

@@ -2,31 +2,11 @@
 
 using namespace std;
 
-// Load Gmsh script and generate square mesh
-Mesh* generateMesh(int refinement, double vel){
-   gmsh::merge("geometry/example.geo");
-   gmsh::model::geo::synchronize();
-   gmsh::model::mesh::generate(2);
-
-   //Refine mesh uniformly
-   for(int x = 0; x < refinement; x++)
-      gmsh::model::mesh::refine();
-   
-   //Construct quadratic triangle elements
-   gmsh::model::mesh::setOrder(2);
-
-   gmsh::write("geometry/example.msh");
-
-   gmsh::fltk::run();
-
-   return new Mesh("geometry/example.msh", vel);
-}
-
 pybind11::tuple computeFlow(int refinement, int steps, double vel, double dt, double visc){
    gmsh::initialize();
    PetscInitializeNoArguments();
 
-   Mesh *msh = generateMesh(refinement, vel);
+   Mesh *msh = new Mesh("geometry/aneurysm.geo", refinement, vel);
    Solver* solver = new Solver(msh, dt, visc);
 
    solver->computeTimeStep(steps);
@@ -46,6 +26,7 @@ pybind11::tuple computeFlow(int refinement, int steps, double vel, double dt, do
    result[3] = np_V;
    result[4] = np_P;
 
+   delete(solver);
    //gmsh::fltk::run();
    PetscFinalize();
    gmsh::finalize();

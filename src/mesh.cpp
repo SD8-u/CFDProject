@@ -1,8 +1,26 @@
 #include "mesh.hpp"
 #include <unordered_set>
 
-Mesh::Mesh(string filePath, double boundaryVel){
-    gmsh::open(filePath);
+// Load Gmsh script and generate msh file
+void generateMesh(string filePath, int refinement, double vel){
+   gmsh::merge("geometry/aneurysm.geo");
+   gmsh::model::geo::synchronize();
+   gmsh::model::mesh::generate(2);
+
+   //Refine mesh uniformly
+   for(int x = 0; x < refinement; x++)
+      gmsh::model::mesh::refine();
+   
+   //Construct quadratic triangle elements
+   gmsh::model::mesh::setOrder(2);
+
+   gmsh::write("geometry/example.msh");
+   gmsh::open("geometry/example.msh");
+}
+
+Mesh::Mesh(string filePath, int refinement, double boundaryVel){
+
+    generateMesh(filePath, refinement, boundaryVel);
     this->boundaryVel = boundaryVel;
 
     vector<size_t> nodeTags;
@@ -30,7 +48,8 @@ Mesh::Mesh(string filePath, double boundaryVel){
         dirichletIds.push_back(nId + nNodes);
         nodeIds[nId] = nodeTags[node];
         nodes[nodeTags[node]] = Node{nId++, -1, false, true, 
-        {0}, {boundaryVel, 0}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
+        {0}, {node == 0 || node == ((nodeCoords.size() - 3)/3) ? 0 : boundaryVel, 0}, 
+        0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
     }
 
     //Retreive nodes in boundary
