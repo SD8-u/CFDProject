@@ -12,6 +12,7 @@ class LocalBuilder {
             0.054975871827, 0.054975871827, 0.054975871827
         };
 
+        bool conv;
         double dt;
         size_t elementTag;
         Mat localGradMat;
@@ -24,10 +25,10 @@ class LocalBuilder {
         vector<double> j;
         vector<double> jdets;
 
+        void setUp();
         void computeGradientMatrix();
         void computeMassMatrix();
         void computeViscosityMatrix();
-        void computeConvectionMatrix();
         void computeFinalMatrix();
         void buildBasisMatrix();
         void buildBasisGradMatrix();
@@ -38,7 +39,9 @@ class LocalBuilder {
         Mat localConvMat;
         Mat localFullMat;
 
+        LocalBuilder();
         LocalBuilder(double dt);
         ~LocalBuilder();
         void assembleMatrices(size_t elementTag);
+        void computeConvectionMatrix(size_t elementTag, Vec *velocityVec);
 };

@@ -3,7 +3,7 @@
 
 // Load Gmsh script and generate msh file
 void generateMesh(string filePath, int refinement, double vel){
-   gmsh::merge("geometry/aneurysm.geo");
+   gmsh::merge(filePath);
    gmsh::model::geo::synchronize();
    gmsh::model::mesh::generate(2);
 

@@ -99,13 +99,26 @@ void GlobalBuilder::localToGlobalVec(bool full){
     VecAssemblyEnd(*vec);
 }
 
+void GlobalBuilder::globalToLocalVec(size_t elementTag, Vec *localVec){
+    for(int node = 0; node < 6; node++){
+        PetscInt ix = msh->nodes[msh->elements[elementTag][node]].id;
+        PetscInt iy = ix + msh->nNodes;
+        PetscScalar vx, vy;
+        VecGetValues(velocityVec, 1, &ix, &vx);
+        VecGetValues(velocityVec, 1, &iy, &vy);
+        VecSetValue(*localVec, node, vx, INSERT_VALUES);
+        VecSetValue(*localVec, node + 6, vy, INSERT_VALUES);
+    }
+    VecAssemblyBegin(*localVec);
+    VecAssemblyEnd(*localVec);
+}
+
 void GlobalBuilder::assembleMatrices(){
     for(size_t elementTag : msh->elementTags[0]){
         localBuild = new LocalBuilder(dt);
         localBuild->assembleMatrices(elementTag);
         localToGlobalMat(elementTag, &localBuild->localMassMat, &globalMassMat);
         localToGlobalMat(elementTag, &localBuild->localViscMat, &globalViscMat);
-        localToGlobalMat(elementTag, &localBuild->localConvMat, &globalConvMat);
         localToGlobalMat(elementTag, &localBuild->localFullMat, &globalFullMat, true);
         delete(localBuild);
     }
@@ -115,14 +128,29 @@ void GlobalBuilder::assembleMatrices(){
     MatAssemblyBegin(globalViscMat, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(globalViscMat, MAT_FINAL_ASSEMBLY);
 
-    MatAssemblyBegin(globalConvMat, MAT_FINAL_ASSEMBLY);
-    MatAssemblyEnd(globalConvMat, MAT_FINAL_ASSEMBLY);
-
     MatAssemblyBegin(globalFullMat, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(globalFullMat, MAT_FINAL_ASSEMBLY);
 
     MatScale(globalViscMat, viscosity);
     MatScale(globalMassMat, dt);
+}
+
+void GlobalBuilder::assembleConvectionMatrix(){
+    Vec localVelVec;
+    VecCreate(PETSC_COMM_WORLD, &localVelVec);
+    VecSetSizes(localVelVec, PETSC_DECIDE, 12);
+    VecSetFromOptions(localVelVec);
+    for(size_t elementTag : msh->elementTags[0]){
+        localBuild = new LocalBuilder();
+        globalToLocalVec(elementTag, &localVelVec);
+        localBuild->computeConvectionMatrix(elementTag, &localVelVec);
+        localToGlobalMat(elementTag, &localBuild->localConvMat, &globalConvMat);
+        delete(localBuild);
+    }
+
+    MatAssemblyBegin(globalConvMat, MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(globalConvMat, MAT_FINAL_ASSEMBLY);
+    VecDestroy(&localVelVec);
 }
 
 void GlobalBuilder::assembleVectors(){

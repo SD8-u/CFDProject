@@ -3,7 +3,7 @@ import matplotlib.pyplot as plt
 from matplotlib.tri import Triangulation
 import numpy as np
 
-x, y, u, v, p = bloodflow.computeFlow(4, 50, 3, 0.0001, 0.001)
+x, y, u, v, p = bloodflow.computeFlow(4, 5, 1, 0.001, 0.1)
 tri = Triangulation(x, y)
 
 fig = plt.figure()

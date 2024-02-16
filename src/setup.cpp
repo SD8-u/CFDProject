@@ -6,7 +6,7 @@ pybind11::tuple computeFlow(int refinement, int steps, double vel, double dt, do
    gmsh::initialize();
    PetscInitializeNoArguments();
 
-   Mesh *msh = new Mesh("geometry/aneurysm.geo", refinement, vel);
+   Mesh *msh = new Mesh("geometry/example.geo", refinement, vel);
    Solver* solver = new Solver(msh, dt, visc);
 
    solver->computeTimeStep(steps);
@@ -27,7 +27,7 @@ pybind11::tuple computeFlow(int refinement, int steps, double vel, double dt, do
    result[4] = np_P;
 
    delete(solver);
-   //gmsh::fltk::run();
+
    PetscFinalize();
    gmsh::finalize();
    return result;

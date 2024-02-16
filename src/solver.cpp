@@ -60,9 +60,9 @@ void Solver::computeFirstStep(){
     VecSetSizes(vint, PETSC_DECIDE, msh->nNodes * 2);
     VecSetFromOptions(vint);
 
+    globalBuild->assembleConvectionMatrix();
     MatConvert(globalBuild->globalConvMat, MATSAME, MAT_INITIAL_MATRIX, &tempMat);
     
-    MatDiagonalScale(tempMat, NULL, globalBuild->velocityVec);
     MatAssemblyBegin(tempMat, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(tempMat, MAT_FINAL_ASSEMBLY);
 
@@ -103,7 +103,7 @@ void Solver::computeSecondStep(){
     VecSetFromOptions(solVec);
 
     MatMult(globalBuild->globalMassMat, globalBuild->velocityVec, tempVec);
-
+    
     VecZeroEntries(solVec);
 
     for(int i = 0; i < msh->nNodes * 2; i++){
