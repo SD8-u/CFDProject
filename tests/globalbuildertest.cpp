@@ -8,10 +8,6 @@ class GlobalBuilderTest : public testing::Test {
 
         static void SetUpTestSuite() {
             ::testing::internal::CaptureStdout();
-
-            gmsh::initialize();
-            PetscInitializeNoArguments();
-
         }
 
         void SetUp() override {

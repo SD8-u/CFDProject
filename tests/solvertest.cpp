@@ -8,10 +8,6 @@ class SolverTest : public testing::Test {
 
         static void SetUpTestSuite() {
             ::testing::internal::CaptureStdout();
-
-            gmsh::initialize();
-            PetscInitializeNoArguments();
-
         }
 
         void SetUp() override {
@@ -60,7 +56,7 @@ TEST_F(SolverTest, SolverBoundaryVelY) {
 }
 
 int main(int argc, char **argv) {
-  printf("Running global builder tests from %s\n", __FILE__);
+  printf("Running all tests...\n");
   testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
