@@ -233,10 +233,16 @@ void LocalBuilder::computeConvectionMatrix(size_t elementTag, Vec *velocityVec){
     vector<Mat> convMats = vector<Mat>(basisMats.size());
 
     for(int m = 0; m < basisMats.size(); m++){
-        MatDuplicate(basisMats[m], MAT_COPY_VALUES, &tempMat);
-        MatDiagonalScale(tempMat, *velocityVec, NULL);
-        MatMatMult(tempMat, basisGradMats[m], MAT_INITIAL_MATRIX, PETSC_DEFAULT, &convMats[m]);
-        MatDestroy(&tempMat);
+        //MatDuplicate(basisMats[m], MAT_COPY_VALUES, &tempMat);
+        //MatDiagonalScale(tempMat, *velocityVec, NULL);
+        MatMatMult(basisMats[m], basisGradMats[m], MAT_INITIAL_MATRIX, PETSC_DEFAULT, &convMats[m]);
+        //MatDestroy(&tempMat);
+    }
+
+    PetscInt ind[12] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
+    PetscScalar v[12] = {0};
+    for(int a = 0; a < 12; a++){
+        VecGetValues(*velocityVec, 1, &a, &v[a]);
     }
 
     for(int i = 0; i < 12; i++){
@@ -247,18 +253,28 @@ void LocalBuilder::computeConvectionMatrix(size_t elementTag, Vec *velocityVec){
             for(int gp = 0; gp < 36; gp+=6){
                 PetscScalar matVal;
                 MatGetValue(convMats[w], i, j, &matVal);
-                convVal += (matVal * gaussWeights[w] * jdets[w++]);
+                double vel = 0;
+                if(i < 6){
+                    vel = v[0] * basisFuncs[gp] + v[1] * basisFuncs[gp + 1] + 
+                    v[2] * basisFuncs[gp + 2] + v[3] * basisFuncs[gp + 3] + 
+                    v[4] * basisFuncs[gp + 4] + v[5] * basisFuncs[gp + 5];
+                }
+                else{
+                    vel = v[6] * basisFuncs[gp] + v[7] * basisFuncs[gp + 1] + 
+                    v[8] * basisFuncs[gp + 2] + v[9] * basisFuncs[gp + 3] + 
+                    v[10] * basisFuncs[gp + 4] + v[11] * basisFuncs[gp + 5];
+                }
+                convVal += (matVal * vel * gaussWeights[w] * jdets[w++]);
             }
             
             MatSetValue(localConvMat, i, j, (convVal), INSERT_VALUES);
         }
     }
-
     MatAssemblyBegin(localConvMat, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(localConvMat, MAT_FINAL_ASSEMBLY);
 
     // Clean up matrices
-    MatDestroy(&tempMat);
+    //MatDestroy(&tempMat);
     cleanUp(convMats);
 }
 
@@ -274,7 +290,7 @@ void LocalBuilder::computeGradientMatrix(){
                 MatGetValue(basisGradMats[w], x, j, &matVal);
                 gradVal += basisFuncsPres[gp + i] * matVal * gaussWeights[w] * jdets[w++];
             }
-            MatSetValue(localGradMat, j, i, gradVal, INSERT_VALUES);
+            MatSetValue(localGradMat, j, i, gradVal * -1, INSERT_VALUES);
         }
     }
 

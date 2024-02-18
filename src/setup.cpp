@@ -28,8 +28,7 @@ pybind11::tuple computeFlow(int refinement, int steps, double vel, double dt, do
 
    delete(solver);
 
-   PetscFinalize();
-   gmsh::finalize();
+   gmsh::clear();
    return result;
 }
 
