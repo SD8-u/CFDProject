@@ -1,0 +1,31 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    name: Run Automated Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: |
+          sudo apt update
+          sudo apt -y install libgmsh-dev 
+          sudo apt -y install petsc-dev 
+          sudo apt -y install libgtest-dev 
+          sudo apt -y install cmake 
+
+      - name: Compile and Run Tests
+        run: |
+          cd build/
+          cmake -DBUILD_MODULE=OFF -DBUILD_TESTS=ON ..
+          cmake --build .
+          cd ..
+          ./build/runTests
