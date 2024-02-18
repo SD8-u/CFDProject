@@ -81,6 +81,7 @@ Mesh::Mesh(string filePath, int refinement, double boundaryVel){
     gmsh::model::mesh::getElements(elementTypes, elementTags, elementNodeTags, 2, -1);
     unordered_set<size_t> pNodes;
 
+    this->elementSize = elementTags[0].size();
     for(int element = 0; element < elementTags[0].size(); element++){
         int type;
         vector<size_t> nodeTags;
