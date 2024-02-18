@@ -89,6 +89,7 @@ include_directories(
 )
 
 add_executable(runTests 
+    tests/globalbuildertest.cpp
     tests/solvertest.cpp 
     src/globalbuilder.cpp 
     src/localbuilder.cpp 

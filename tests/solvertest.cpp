@@ -7,7 +7,7 @@ class SolverTest : public testing::Test {
         Solver *solver;
 
         static void SetUpTestSuite() {
-            //::testing::internal::CaptureStdout();
+            ::testing::internal::CaptureStdout();
 
             gmsh::initialize();
             PetscInitializeNoArguments();
@@ -29,7 +29,7 @@ class SolverTest : public testing::Test {
             gmsh::finalize();
             PetscFinalize();
 
-            //::testing::internal::GetCapturedStdout();
+            ::testing::internal::GetCapturedStdout();
         }
 };
 
@@ -60,7 +60,7 @@ TEST_F(SolverTest, SolverBoundaryVelY) {
 }
 
 int main(int argc, char **argv) {
-  printf("Running solver tests from %s\n", __FILE__);
+  printf("Running global builder tests from %s\n", __FILE__);
   testing::InitGoogleTest(&argc, argv);
   return RUN_ALL_TESTS();
 }
