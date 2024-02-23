@@ -1,4 +1,5 @@
 #include "setup.hpp"
+#include <omp.h>
 
 using namespace std;
 
@@ -37,9 +38,23 @@ PYBIND11_MODULE(bloodflow, m) {
    m.def("computeFlow", &computeFlow, "A function to compute flow");
 }
 
+void computeFlowC(int refinement, int steps, double vel, double dt, double visc){
+   PetscInitializeNoArguments();
+   gmsh::initialize();
+
+   Mesh *msh = new Mesh("geometry/example.geo", refinement, vel);
+   Solver* solver = new Solver(msh, dt, visc);
+
+   solver->computeTimeStep(steps);
+   vector<vector<double>> solData = solver->interpolateSolution(0.03);
+
+   delete(solver);
+   gmsh::finalize();
+   PetscFinalize();
+}
+
 int main(int argc, char **argv)
 {
-   computeFlow(3, 1, 100, 0.001, 10);
-
+   computeFlowC(5, 1, 100, 0.001, 10);
    return 0;
 }

@@ -30,6 +30,7 @@ if(BUILD_MODULE)
     
     find_package(Python 3.10 COMPONENTS Interpreter Development REQUIRED)
     find_package(pybind11 CONFIG REQUIRED)
+    find_package(OpenMP REQUIRED)
 
     # Set the include directories for the c++ executable
     target_include_directories(main PRIVATE
@@ -46,17 +47,22 @@ if(BUILD_MODULE)
         stdc++
         gmsh
         python3.10
+        OpenMP::OpenMP_CXX
     )
 
     # Set compiler flags for the c++ executable
     target_compile_options(main PRIVATE
         -fdiagnostics-color=always
         -g
+        -fopenmp
     )
 
     # Set output directory for the c++ executable
     set_target_properties(main PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${OUTDIR})
+
+    find_package(pybind11 CONFIG REQUIRED)
+    find_package(OpenMP REQUIRED)
 
     # Create the python bloodflow module target
     pybind11_add_module(bloodflow ${SOURCES})
@@ -76,6 +82,7 @@ if(BUILD_MODULE)
         stdc++
         gmsh
         python3.10
+        OpenMP::OpenMP_CXX
     )
 
     # Set output directory for the bloodflow module
