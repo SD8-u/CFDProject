@@ -1,4 +1,5 @@
 #include <gtest/gtest.h>
+#include <omp.h>
 #include "solver.hpp"
 
 class SolverTest : public testing::Test {
@@ -56,7 +57,8 @@ TEST_F(SolverTest, SolverBoundaryVelY) {
 }
 
 int main(int argc, char **argv) {
-  printf("Running all tests...\n");
-  testing::InitGoogleTest(&argc, argv);
-  return RUN_ALL_TESTS();
+    omp_set_num_threads(6);
+    printf("Running all tests...\n");
+    testing::InitGoogleTest(&argc, argv);
+    return RUN_ALL_TESTS();
 }

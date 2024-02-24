@@ -42,6 +42,6 @@ class LocalBuilder {
         LocalBuilder();
         LocalBuilder(double dt);
         ~LocalBuilder();
-        void assembleMatrices(size_t elementTag);
+        void assembleMatrices(size_t elementTag, int tnum);
         void computeConvectionMatrix(size_t elementTag, Vec *velocityVec);
 };

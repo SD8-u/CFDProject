@@ -6,6 +6,7 @@ using namespace std;
 pybind11::tuple computeFlow(int refinement, int steps, double vel, double dt, double visc){
    gmsh::initialize();
    PetscInitializeNoArguments();
+   omp_set_num_threads(4);
 
    Mesh *msh = new Mesh("geometry/example.geo", refinement, vel);
    Solver* solver = new Solver(msh, dt, visc);
@@ -41,6 +42,7 @@ PYBIND11_MODULE(bloodflow, m) {
 void computeFlowC(int refinement, int steps, double vel, double dt, double visc){
    PetscInitializeNoArguments();
    gmsh::initialize();
+   omp_set_num_threads(4);
 
    Mesh *msh = new Mesh("geometry/example.geo", refinement, vel);
    Solver* solver = new Solver(msh, dt, visc);

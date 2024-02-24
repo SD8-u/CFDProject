@@ -94,6 +94,8 @@ endif()
 if(BUILD_TESTS)
     # Locate GTest
     find_package(GTest REQUIRED)
+    find_package(OpenMP REQUIRED)
+    
     include_directories(
         ${GTEST_INCLUDE_DIRS}
         /usr/include/petsc
@@ -118,6 +120,7 @@ if(BUILD_TESTS)
         petsc
         stdc++
         gmsh
+        OpenMP::OpenMP_CXX
         ${GTEST_LIBRARIES} 
     )
 endif()

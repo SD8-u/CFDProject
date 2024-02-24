@@ -1,4 +1,5 @@
 #include "globalbuilder.hpp"
+#include <omp.h>
 
 GlobalBuilder::GlobalBuilder(int dim, double dt, double visc, Mesh* msh){
     this->dt = 1/dt;
@@ -64,10 +65,14 @@ void GlobalBuilder::localToGlobalMat(size_t elementTag, Mat *localMat, Mat *glob
                     y = msh->nodes[msh->elements[elementTag][j % 6]].pid;
                     y += msh->nNodes * 2;
                 }
-                PetscScalar matVal;
 
+                PetscScalar matVal;
                 MatGetValue(*localMat, i, j, &matVal);
-                MatSetValue(*globalMat, x, y, matVal, ADD_VALUES);
+                
+                #pragma omp critical
+                {
+                    MatSetValue(*globalMat, x, y, matVal, ADD_VALUES);
+                }
             }
         }
 }
@@ -114,13 +119,28 @@ void GlobalBuilder::globalToLocalVec(size_t elementTag, Vec *localVec){
 }
 
 void GlobalBuilder::assembleMatrices(){
+    omp_set_num_threads(4);
+    int nThreads = 4;
+    LocalBuilder *localThreadBuilds[nThreads];
+    for(int x = 0; x < nThreads; x++){
+        localThreadBuilds[x] = new LocalBuilder(dt);
+    }
+
+    #pragma omp parallel for
     for(size_t elementTag : msh->elementTags[0]){
-        localBuild = new LocalBuilder(dt);
-        localBuild->assembleMatrices(elementTag);
-        localToGlobalMat(elementTag, &localBuild->localMassMat, &globalMassMat);
-        localToGlobalMat(elementTag, &localBuild->localViscMat, &globalViscMat);
-        localToGlobalMat(elementTag, &localBuild->localFullMat, &globalFullMat, true);
-        delete(localBuild);
+        //#pragma omp critical
+        //{
+            int o = omp_get_thread_num();
+            localThreadBuilds[o]->assembleMatrices(elementTag, o);
+        //#pragma omp critical
+        //{
+            localToGlobalMat(elementTag, &localThreadBuilds[o]->localMassMat, &globalMassMat);
+            localToGlobalMat(elementTag, &localThreadBuilds[o]->localViscMat, &globalViscMat);
+            localToGlobalMat(elementTag, &localThreadBuilds[o]->localFullMat, &globalFullMat, true);
+        //}
+    }
+    for(int x = 0; x < nThreads; x++){
+        delete(localThreadBuilds[x]);
     }
     MatAssemblyBegin(globalMassMat, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(globalMassMat, MAT_FINAL_ASSEMBLY);
@@ -140,12 +160,26 @@ void GlobalBuilder::assembleConvectionMatrix(){
     VecCreate(PETSC_COMM_WORLD, &localVelVec);
     VecSetSizes(localVelVec, PETSC_DECIDE, 12);
     VecSetFromOptions(localVelVec);
+
+    omp_set_num_threads(4);
+    int nThreads = 4;
+    LocalBuilder *localThreadBuilds[nThreads];
+    Vec localThreadVelVec[nThreads];
+    for(int x = 0; x < nThreads; x++){
+        localThreadBuilds[x] = new LocalBuilder();
+        VecDuplicate(localVelVec, &localThreadVelVec[x]);
+    }
+
+    #pragma omp parallel for
     for(size_t elementTag : msh->elementTags[0]){
-        localBuild = new LocalBuilder();
-        globalToLocalVec(elementTag, &localVelVec);
-        localBuild->computeConvectionMatrix(elementTag, &localVelVec);
-        localToGlobalMat(elementTag, &localBuild->localConvMat, &globalConvMat);
-        delete(localBuild);
+        int o = omp_get_thread_num();
+        globalToLocalVec(elementTag, &localThreadVelVec[o]);
+        localThreadBuilds[o]->computeConvectionMatrix(elementTag, &localThreadVelVec[o]);
+        localToGlobalMat(elementTag, &localThreadBuilds[o]->localConvMat, &globalConvMat);
+    }
+    for(int x = 0; x < nThreads; x++){
+        delete(localThreadBuilds[x]);
+        VecDestroy(&localThreadVelVec[x]);
     }
 
     MatAssemblyBegin(globalConvMat, MAT_FINAL_ASSEMBLY);
