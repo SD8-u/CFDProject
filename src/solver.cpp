@@ -15,11 +15,15 @@ Solver::Solver(Mesh* msh, double dt, double viscosity){
     applyDirichletConditions(&globalBuild->globalFullMat, &tempVec, false);
     VecDestroy(&tempVec);
 
-    KSPCreate(PETSC_COMM_WORLD, &stp1Solver);
     KSPCreate(PETSC_COMM_WORLD, &stp2Solver);
     KSPSetType(stp2Solver, KSPGMRES);
     KSPSetOperators(stp2Solver, globalBuild->globalFullMat, globalBuild->globalFullMat);
     KSPSetFromOptions(stp2Solver);
+}
+
+Solver::~Solver(){
+    KSPDestroy(&stp2Solver);
+    delete(globalBuild);
 }
 
 void Solver::applyDirichletConditions(Mat *m, Vec *v, bool expl){

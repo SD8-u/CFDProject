@@ -130,7 +130,7 @@ void GlobalBuilder::assembleMatrices(){
     for(size_t elementTag : msh->elementTags[0]){
 
         int o = omp_get_thread_num();
-        localThreadBuilds[o]->assembleMatrices(elementTag, o);
+        localThreadBuilds[o]->assembleMatrices(elementTag);
 
         localToGlobalMat(elementTag, &localThreadBuilds[o]->localMassMat, &globalMassMat);
         localToGlobalMat(elementTag, &localThreadBuilds[o]->localViscMat, &globalViscMat);

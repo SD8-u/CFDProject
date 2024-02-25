@@ -356,7 +356,7 @@ void LocalBuilder::computeFinalMatrix(){
     MatScale(localMassMat, 1/dt);
 }
 
-void LocalBuilder::assembleMatrices(size_t elementTag, int tnum){
+void LocalBuilder::assembleMatrices(size_t elementTag){
     this->elementTag = elementTag;
     vector<double> coords;
 

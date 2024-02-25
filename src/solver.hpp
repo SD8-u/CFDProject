@@ -13,6 +13,7 @@ class Solver {
         void applyDirichletConditions(Mat *m, Vec *v, bool full);
     public:
         Solver(Mesh* msh, double dt, double visc);
+        ~Solver();
         void computeFirstStep();
         void computeSecondStep();
         void computeTimeStep(int steps);
