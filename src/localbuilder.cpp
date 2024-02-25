@@ -130,13 +130,15 @@ void LocalBuilder::buildInverseJacobian(){
 
 //Compute basis function gradient matrix w.r.t spatial coordinates
 void LocalBuilder::buildBasisGradMatrix(){
-    //cout << "B1\n";
     int m = 0;
     //Compute matrix for each integration point
     for(int point = 0; point < basisFuncsGrad.size(); point+=18){
         Mat temp;
         MatZeroEntries(basisGradMats[m]);
-        MatDuplicate(basisGradMats[m], MAT_DO_NOT_COPY_VALUES, &temp);
+        #pragma omp critical
+        {
+            MatDuplicate(basisGradMats[m], MAT_DO_NOT_COPY_VALUES, &temp);
+        }
         //Construct local basis gradient matrix
         for(int i = 0; i < 2; i++){
             int j = 0;
@@ -166,6 +168,7 @@ void LocalBuilder::buildBasisGradMatrix(){
 
 void LocalBuilder::computeMassMatrix(){
     MatZeroEntries(localMassMat);
+
     //Enumerate the matrix
     for(int i = 0; i < 12; i++){
         for(int j = 0; j < 12; j++){
@@ -190,6 +193,7 @@ void LocalBuilder::computeMassMatrix(){
 
 void LocalBuilder::computeViscosityMatrix(){
     MatZeroEntries(localViscMat);
+
     vector<Mat> basisGradMatsT = vector<Mat>(basisGradMats.size());
     vector<Mat> viscMats = vector<Mat>(basisGradMats.size());
 
@@ -237,11 +241,8 @@ void LocalBuilder::computeConvectionMatrix(size_t elementTag, Vec *velocityVec){
     vector<double> coords;
     gmsh::model::mesh::getJacobian(elementTag, gaussPoints, j, jdets, coords);
     buildInverseJacobian();
-    //#pragma omp critical
-    //{
-        buildBasisGradMatrix();
-    //}
     MatZeroEntries(localConvMat);
+    buildBasisGradMatrix();
     vector<Mat> convMats = vector<Mat>(basisMats.size());
 
     for(int m = 0; m < basisMats.size(); m++){
@@ -292,6 +293,7 @@ void LocalBuilder::computeConvectionMatrix(size_t elementTag, Vec *velocityVec){
 
 void LocalBuilder::computeGradientMatrix(){
     MatZeroEntries(localGradMat);
+
     for(int i = 0; i < 3; i++){
         for(int j = 0; j < 12; j++){
             int w = 0;
@@ -315,10 +317,7 @@ void LocalBuilder::computeFinalMatrix(){
     MatScale(localMassMat, dt);
     Mat localGradTMat;
 
-    #pragma omp critical
-    {
-        MatTranspose(localGradMat, MAT_INITIAL_MATRIX, &localGradTMat);
-    }
+    MatTranspose(localGradMat, MAT_INITIAL_MATRIX, &localGradTMat);
 
     for(int i = 0; i < 12; i++){
         for(int j = 0; j < 12; j++){
@@ -364,15 +363,10 @@ void LocalBuilder::assembleMatrices(size_t elementTag, int tnum){
     gmsh::model::mesh::getJacobian(elementTag, gaussPoints, j, jdets, coords);
 
     buildInverseJacobian();
-    
-    //#pragma omp critical
-    //{
-        buildBasisGradMatrix();
-        computeGradientMatrix();
-        computeViscosityMatrix();
-    //}
+    buildBasisGradMatrix();
 
     computeMassMatrix();
-    //computeGradientMatrix();
+    computeViscosityMatrix();
+    computeGradientMatrix();
     computeFinalMatrix();
 }

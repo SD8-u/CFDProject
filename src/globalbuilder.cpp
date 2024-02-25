@@ -128,16 +128,13 @@ void GlobalBuilder::assembleMatrices(){
 
     #pragma omp parallel for
     for(size_t elementTag : msh->elementTags[0]){
-        //#pragma omp critical
-        //{
-            int o = omp_get_thread_num();
-            localThreadBuilds[o]->assembleMatrices(elementTag, o);
-        //#pragma omp critical
-        //{
-            localToGlobalMat(elementTag, &localThreadBuilds[o]->localMassMat, &globalMassMat);
-            localToGlobalMat(elementTag, &localThreadBuilds[o]->localViscMat, &globalViscMat);
-            localToGlobalMat(elementTag, &localThreadBuilds[o]->localFullMat, &globalFullMat, true);
-        //}
+
+        int o = omp_get_thread_num();
+        localThreadBuilds[o]->assembleMatrices(elementTag, o);
+
+        localToGlobalMat(elementTag, &localThreadBuilds[o]->localMassMat, &globalMassMat);
+        localToGlobalMat(elementTag, &localThreadBuilds[o]->localViscMat, &globalViscMat);
+        localToGlobalMat(elementTag, &localThreadBuilds[o]->localFullMat, &globalFullMat, true);
     }
     for(int x = 0; x < nThreads; x++){
         delete(localThreadBuilds[x]);
