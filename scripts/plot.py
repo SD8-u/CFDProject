@@ -22,13 +22,15 @@ def generate_plot(refinement, timesteps, velocity, dt, viscosity):
     u = u.reshape(len(np.unique(x)), len(np.unique(y)))
     v  = v.reshape(len(np.unique(x)), len(np.unique(y)))
 
-    contour_plot = plt.tricontourf(tri, p, cmap='viridis') 
-    plt.colorbar(contour_plot, label='Pressure')
-    plt.streamplot(np.unique(x), np.unique(y), u.transpose(), 
-                    v.transpose(), density=1.3, linewidth=1, color='red')
-
+    fig = plt.figure()
+    ax = fig.add_subplot(111)
+    contour_plot = ax.tricontourf(tri, p, cmap='viridis')
+    fig.colorbar(contour_plot, label='Pressure')
+    ax.streamplot(np.unique(x), np.unique(y), u.transpose(), 
+                    v.transpose(), density=1.3, linewidth=0.8, arrowsize=0.8, color='red')
+    ax.set_aspect('equal')
     plt.xlabel('X')
     plt.ylabel('Y')
     plt.title('Fluid Stream Plot')
-    plt.savefig('stream_plot3.png', dpi=500)
+    fig.savefig('stream_plot.png', dpi=500)
     plt.close()

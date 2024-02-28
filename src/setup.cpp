@@ -4,8 +4,6 @@
 using namespace std;
 
 pybind11::tuple computeFlow(int refinement, int steps, double vel, double dt, double visc){
-   gmsh::initialize();
-   PetscInitializeNoArguments();
    omp_set_num_threads(4);
 
    Mesh *msh = new Mesh("geometry/example.geo", refinement, vel);
@@ -35,9 +33,21 @@ pybind11::tuple computeFlow(int refinement, int steps, double vel, double dt, do
    return result;
 }
 
+void startUp(){
+   gmsh::initialize();
+   PetscInitializeNoArguments();
+}
+
+void cleanUp(){
+   gmsh::finalize();
+   PetscFinalize();
+}
+
 PYBIND11_MODULE(bloodflow, m) {
    m.doc() = "computes flow given (refinement, steps, velocity, dt, and visc)";
    m.def("computeFlow", &computeFlow, "A function to compute flow");
+   m.def("startUp", &startUp, "A function to allocate resources");
+   m.def("cleanUp", &cleanUp, "A function to free resources");
 }
 
 void computeFlowC(int refinement, int steps, double vel, double dt, double visc){

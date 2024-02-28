@@ -1,4 +1,5 @@
-import main
+import plot
+import bloodflow
 from PIL import Image
 import customtkinter
 
@@ -41,7 +42,7 @@ class OptionFrame(customtkinter.CTkFrame):
 
     #Execute simulation given parameters
     def button_callbck(self):
-        main.generate_plot(int(self.refinement.get()), int(self.timesteps.get()), 
+        plot.generate_plot(int(self.refinement.get()), int(self.timesteps.get()), 
                            float(self.velocity.get()), float(self.dt.get()), float(self.viscosity.get()))
         self.image_update()
 
@@ -52,7 +53,7 @@ class App(customtkinter.CTk):
         customtkinter.set_appearance_mode("dark")
         self.title("CFD Solver")
         self.geometry("1000x600")
-        self.image = customtkinter.CTkImage(dark_image=Image.open("vector_field.png"), size=(640, 480))
+        self.image = customtkinter.CTkImage(dark_image=Image.open("stream_plot.png"), size=(640, 480))
         self.label = customtkinter.CTkLabel(master=self, image=self.image, text='')
         self.label.grid(row=0, column=1, padx=20, pady=20, sticky="w")
         self.option_frame = OptionFrame(self, self.image_update)
@@ -61,9 +62,10 @@ class App(customtkinter.CTk):
 
     #Execute simulation given parameters
     def image_update(self):
-        self.image = customtkinter.CTkImage(dark_image=Image.open("vector_field.png"), size=(640, 480))
+        self.image = customtkinter.CTkImage(dark_image=Image.open("stream_plot.png"), size=(640, 480))
         self.label.configure(image=self.image)
 
-
+bloodflow.startUp()
 app = App()
 app.mainloop()
+bloodflow.cleanUp()

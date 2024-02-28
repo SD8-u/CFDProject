@@ -154,12 +154,16 @@ vector<vector<double>> Solver::interpolateSolution(double resolution){
         for(double y = ymin; y < ymax; y+=resolution){
             double nodePre, nodeVx, nodeVy;
             double pressure = 0, xv = 0, yv = 0;
+            solData[3].push_back(x); solData[4].push_back(y);
 
             try{
                 gmsh::model::mesh::getElementByCoordinates(x, y, 0, elementTag, 
                 elementType, nodeTags, u, v, w, -1, true);
             }
-            catch(...) {continue;}
+            catch(...) {
+                solData[0].push_back(0); solData[1].push_back(0); solData[2].push_back(0);
+                continue;
+            }
 
             coord.push_back(u); coord.push_back(v); coord.push_back(w);
 
@@ -186,8 +190,7 @@ vector<vector<double>> Solver::interpolateSolution(double resolution){
             }
             
             solData[0].push_back(pressure); solData[1].push_back(xv);
-            solData[2].push_back(yv); solData[3].push_back(x);
-            solData[4].push_back(y);
+            solData[2].push_back(yv);
             coord.clear();
         }
     }

@@ -37,13 +37,13 @@ TEST_F(SolverTest, SolverDataSize) {
 }
 
 TEST_F(SolverTest, SolverBoundaryVelX) {
-    solver->computeTimeStep(2);
-    vector<vector<double>> sol = solver->interpolateSolution(0.01);
-    int avg = 0;
-    for(double vel : sol[1])
-        avg+=vel;
-    avg/=sol[1].size();
-    ASSERT_LE(avg, 1);
+   solver->computeTimeStep(2);
+   vector<vector<double>> sol = solver->interpolateSolution(0.01);
+   int avg = 0;
+   for(double vel : sol[1])
+       avg+=vel;
+   avg/=sol[1].size();
+   ASSERT_LE(avg, 1);
 }
 
 TEST_F(SolverTest, SolverBoundaryVelY) {
@@ -57,7 +57,6 @@ TEST_F(SolverTest, SolverBoundaryVelY) {
 }
 
 int main(int argc, char **argv) {
-    omp_set_num_threads(6);
     printf("Running all tests...\n");
     testing::InitGoogleTest(&argc, argv);
     return RUN_ALL_TESTS();
