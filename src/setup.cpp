@@ -59,7 +59,7 @@ void computeFlowC(int refinement, int steps, double vel, double dt, double visc)
    Solver* solver = new Solver(msh, dt, visc);
 
    solver->computeTimeStep(steps);
-   vector<vector<double>> solData = solver->interpolateSolution(0.03);
+   vector<vector<double>> solData = solver->interpolateSolution(0.01);
 
    delete(solver);
    gmsh::finalize();

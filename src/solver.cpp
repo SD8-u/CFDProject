@@ -3,6 +3,7 @@
 Solver::Solver(Mesh* msh, double dt, double viscosity){
     Vec tempVec;
     this->msh = msh;
+    PC preConditioner;
 
     globalBuild = new GlobalBuilder(2, dt, viscosity, msh);
     globalBuild->assembleMatrices();
@@ -18,6 +19,8 @@ Solver::Solver(Mesh* msh, double dt, double viscosity){
     KSPCreate(PETSC_COMM_WORLD, &stp2Solver);
     KSPSetType(stp2Solver, KSPGMRES);
     KSPSetOperators(stp2Solver, globalBuild->globalFullMat, globalBuild->globalFullMat);
+    KSPGetPC(stp2Solver, &preConditioner);
+    PCSetType(preConditioner, PCJACOBI);
     KSPSetFromOptions(stp2Solver);
 }
 
@@ -50,6 +53,7 @@ void Solver::computeFirstStep(){
     Mat tempMat;
     Vec tempVec;
     Vec vint;
+    PC preConditoner;
 
     MatCreate(PETSC_COMM_WORLD, &tempMat);
     MatSetSizes(tempMat, PETSC_DECIDE, PETSC_DECIDE, 
@@ -83,6 +87,8 @@ void Solver::computeFirstStep(){
     KSPCreate(PETSC_COMM_WORLD, &stp1Solver);
     KSPSetType(stp1Solver, KSPGMRES);
     KSPSetOperators(stp1Solver, tempMat, tempMat);
+    KSPGetPC(stp1Solver, &preConditoner);
+    PCSetType(preConditoner, PCJACOBI);
     KSPSetFromOptions(stp1Solver);
     KSPSolve(stp1Solver, tempVec, vint);
     VecCopy(vint, globalBuild->velocityVec);
