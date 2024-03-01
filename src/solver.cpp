@@ -19,8 +19,8 @@ Solver::Solver(Mesh* msh, double dt, double viscosity){
     KSPCreate(PETSC_COMM_WORLD, &stp2Solver);
     KSPSetType(stp2Solver, KSPGMRES);
     KSPSetOperators(stp2Solver, globalBuild->globalFullMat, globalBuild->globalFullMat);
-    KSPGetPC(stp2Solver, &preConditioner);
-    PCSetType(preConditioner, PCJACOBI);
+    //KSPGetPC(stp2Solver, &preConditioner);
+    //PCSetType(preConditioner, PCJACOBI);
     KSPSetFromOptions(stp2Solver);
 }
 
@@ -50,9 +50,9 @@ void Solver::applyDirichletConditions(Mat *m, Vec *v, bool expl){
 }
 
 void Solver::computeFirstStep(){
+
     Mat tempMat;
     Vec tempVec;
-    Vec vint;
     PC preConditoner;
 
     MatCreate(PETSC_COMM_WORLD, &tempMat);
@@ -64,38 +64,36 @@ void Solver::computeFirstStep(){
     VecCreate(PETSC_COMM_WORLD, &tempVec);
     VecSetSizes(tempVec, PETSC_DECIDE, msh->nNodes * 2);
     VecSetFromOptions(tempVec);
-    VecCreate(PETSC_COMM_WORLD, &vint);
-    VecSetSizes(vint, PETSC_DECIDE, msh->nNodes * 2);
-    VecSetFromOptions(vint);
 
     globalBuild->assembleConvectionMatrix();
-    MatConvert(globalBuild->globalConvMat, MATSAME, MAT_INITIAL_MATRIX, &tempMat);
-    
+    MatConvert(globalBuild->globalMassMat, MATSAME, MAT_INITIAL_MATRIX, &tempMat);
     MatAssemblyBegin(tempMat, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(tempMat, MAT_FINAL_ASSEMBLY);
 
-    //Add viscous and mass matrix to system
-    MatAXPY(tempMat, 1.0, globalBuild->globalViscMat, DIFFERENT_NONZERO_PATTERN);
-    MatAXPY(tempMat, 1.0, globalBuild->globalMassMat, DIFFERENT_NONZERO_PATTERN);
+    //Subtract half viscous + convection terms from right hand side
+    MatAXPY(tempMat, -1/2, globalBuild->globalViscMat, DIFFERENT_NONZERO_PATTERN);
+    MatAXPY(tempMat, -1/2, globalBuild->globalConvMat, DIFFERENT_NONZERO_PATTERN);
 
-    MatMult(globalBuild->globalMassMat, globalBuild->velocityVec, tempVec);
+    MatMult(tempMat, globalBuild->velocityVec, tempVec);
 
     //Impose Dirichlet Conditions
     applyDirichletConditions(&tempMat, &tempVec, false);
+
+    //Add viscous and convection terms to system of equations
+    MatAXPY(tempMat, 1.0, globalBuild->globalViscMat, DIFFERENT_NONZERO_PATTERN);
+    MatAXPY(tempMat, 1.0, globalBuild->globalConvMat, DIFFERENT_NONZERO_PATTERN);
 
     //Solve system
     KSPCreate(PETSC_COMM_WORLD, &stp1Solver);
     KSPSetType(stp1Solver, KSPGMRES);
     KSPSetOperators(stp1Solver, tempMat, tempMat);
-    KSPGetPC(stp1Solver, &preConditoner);
-    PCSetType(preConditoner, PCJACOBI);
+    //KSPGetPC(stp1Solver, &preConditoner);
+    //PCSetType(preConditoner, PCJACOBI);
     KSPSetFromOptions(stp1Solver);
-    KSPSolve(stp1Solver, tempVec, vint);
-    VecCopy(vint, globalBuild->velocityVec);
+    KSPSolve(stp1Solver, tempVec, globalBuild->velocityVec);
 
     //Cleanup
     VecDestroy(&tempVec);
-    VecDestroy(&vint);
     MatDestroy(&tempMat);
     KSPDestroy(&stp1Solver);
 }
