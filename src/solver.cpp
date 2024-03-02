@@ -101,6 +101,7 @@ void Solver::computeFirstStep(){
 void Solver::computeSecondStep(){
     Vec tempVec;
     Vec solVec;
+    Mat tempMat;
 
     VecCreate(PETSC_COMM_WORLD, &tempVec);
     VecCreate(PETSC_COMM_WORLD, &solVec);
@@ -110,8 +111,12 @@ void Solver::computeSecondStep(){
     VecSetFromOptions(tempVec);
     VecSetFromOptions(solVec);
 
-    MatMult(globalBuild->globalMassMat, globalBuild->velocityVec, tempVec);
+    //MatDuplicate(globalBuild->globalMassMat, MAT_COPY_VALUES, &tempMat);
+    //MatAXPY(tempMat, -1.0, globalBuild->globalViscMat, DIFFERENT_NONZERO_PATTERN);
+    //MatMult(tempMat, globalBuild->velocityVec, tempVec);
+    //MatDestroy(&tempMat);
     
+    MatMult(globalBuild->globalMassMat, globalBuild->velocityVec, tempVec);
     VecZeroEntries(solVec);
 
     for(int i = 0; i < msh->nNodes * 2; i++){

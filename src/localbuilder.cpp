@@ -53,8 +53,9 @@ LocalBuilder::LocalBuilder(){
     MatSetUp(localConvMat);
 }
 
-LocalBuilder::LocalBuilder(double dt){
+LocalBuilder::LocalBuilder(double dt, double viscosity){
     this->dt = dt;
+    this->viscosity = viscosity;
     this->conv = false;
     setUp();
     MatCreate(PETSC_COMM_WORLD, &localMassMat);
@@ -86,8 +87,8 @@ LocalBuilder::~LocalBuilder(){
         MatDestroy(&localConvMat);
     }
     cleanUp(basisMats);
-    cleanUp(basisGradMats);
     cleanUp(inverseJacobian);
+    cleanUp(basisGradMats);
 }
 
 void LocalBuilder::buildBasisMatrix(){
@@ -130,15 +131,16 @@ void LocalBuilder::buildInverseJacobian(){
 
 //Compute basis function gradient matrix w.r.t spatial coordinates
 void LocalBuilder::buildBasisGradMatrix(){
+
     int m = 0;
     //Compute matrix for each integration point
     for(int point = 0; point < basisFuncsGrad.size(); point+=18){
         Mat temp;
-        MatZeroEntries(basisGradMats[m]);
-        #pragma omp critical
-        {
-            MatDuplicate(basisGradMats[m], MAT_DO_NOT_COPY_VALUES, &temp);
-        }
+        MatCreate(PETSC_COMM_WORLD, &temp);
+        MatSetSizes(temp, PETSC_DECIDE, PETSC_DECIDE, 2, 12);
+        MatSetFromOptions(temp);
+        MatSetUp(temp);
+
         //Construct local basis gradient matrix
         for(int i = 0; i < 2; i++){
             int j = 0;
@@ -153,11 +155,9 @@ void LocalBuilder::buildBasisGradMatrix(){
         MatAssemblyBegin(temp, MAT_FINAL_ASSEMBLY);
         MatAssemblyEnd(temp, MAT_FINAL_ASSEMBLY);
 
-        //Perform conversion from local coordinates to physical via inverse jacobian
-        #pragma omp critical
-        {    
-            MatMatMult(inverseJacobian[m], temp, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &basisGradMats[m]);
-        }
+        //Perform conversion from local coordinates to physical via inverse jacobian  
+        MatDestroy(&basisGradMats[m]);
+        MatMatMult(inverseJacobian[m], temp, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &basisGradMats[m]);
         MatDestroy(&temp);
 
         MatAssemblyBegin(basisGradMats[m], MAT_FINAL_ASSEMBLY);
@@ -289,6 +289,7 @@ void LocalBuilder::computeConvectionMatrix(size_t elementTag, Vec *velocityVec){
     MatAssemblyEnd(localConvMat, MAT_FINAL_ASSEMBLY);
 
     cleanUp(convMats);
+    //cleanUp(basisGradMats);
 }
 
 void LocalBuilder::computeGradientMatrix(){
@@ -315,15 +316,18 @@ void LocalBuilder::computeGradientMatrix(){
 void LocalBuilder::computeFinalMatrix(){
     MatZeroEntries(localFullMat);
     MatScale(localMassMat, dt);
+    MatScale(localViscMat, viscosity);
     Mat localGradTMat;
 
     MatTranspose(localGradMat, MAT_INITIAL_MATRIX, &localGradTMat);
 
     for(int i = 0; i < 12; i++){
         for(int j = 0; j < 12; j++){
-            PetscScalar matVal;
-            MatGetValue(localMassMat, i, j, &matVal);
-            MatSetValue(localFullMat, i, j, matVal, INSERT_VALUES);
+            PetscScalar massVal;
+            PetscScalar viscVal;
+            MatGetValue(localMassMat, i, j, &massVal);
+            MatGetValue(localViscMat, i, j, &viscVal);
+            MatSetValue(localFullMat, i, j, massVal, INSERT_VALUES);
         }
     }
 
@@ -354,6 +358,7 @@ void LocalBuilder::computeFinalMatrix(){
 
     MatDestroy(&localGradTMat);
     MatScale(localMassMat, 1/dt);
+    MatScale(localViscMat, 1/viscosity);
 }
 
 void LocalBuilder::assembleMatrices(size_t elementTag){

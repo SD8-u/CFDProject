@@ -119,26 +119,19 @@ void GlobalBuilder::globalToLocalVec(size_t elementTag, Vec *localVec){
 }
 
 void GlobalBuilder::assembleMatrices(){
-    omp_set_num_threads(4);
-    int nThreads = 4;
-    LocalBuilder *localThreadBuilds[nThreads];
-    for(int x = 0; x < nThreads; x++){
-        localThreadBuilds[x] = new LocalBuilder(dt);
-    }
 
-    #pragma omp parallel for
+    localBuild = new LocalBuilder(dt, viscosity);
+
     for(size_t elementTag : msh->elementTags[0]){
 
         int o = omp_get_thread_num();
-        localThreadBuilds[o]->assembleMatrices(elementTag);
+        localBuild->assembleMatrices(elementTag);
 
-        localToGlobalMat(elementTag, &localThreadBuilds[o]->localMassMat, &globalMassMat);
-        localToGlobalMat(elementTag, &localThreadBuilds[o]->localViscMat, &globalViscMat);
-        localToGlobalMat(elementTag, &localThreadBuilds[o]->localFullMat, &globalFullMat, true);
+        localToGlobalMat(elementTag, &localBuild->localMassMat, &globalMassMat);
+        localToGlobalMat(elementTag, &localBuild->localViscMat, &globalViscMat);
+        localToGlobalMat(elementTag, &localBuild->localFullMat, &globalFullMat, true);
     }
-    for(int x = 0; x < nThreads; x++){
-        delete(localThreadBuilds[x]);
-    }
+    delete(localBuild);
     MatAssemblyBegin(globalMassMat, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(globalMassMat, MAT_FINAL_ASSEMBLY);
 
@@ -158,29 +151,17 @@ void GlobalBuilder::assembleConvectionMatrix(){
     VecSetSizes(localVelVec, PETSC_DECIDE, 12);
     VecSetFromOptions(localVelVec);
 
-    omp_set_num_threads(4);
-    int nThreads = 4;
-    LocalBuilder *localThreadBuilds[nThreads];
-    Vec localThreadVelVec[nThreads];
-    for(int x = 0; x < nThreads; x++){
-        localThreadBuilds[x] = new LocalBuilder();
-        VecDuplicate(localVelVec, &localThreadVelVec[x]);
-    }
+    localBuild = new LocalBuilder();
 
-    #pragma omp parallel for
     for(size_t elementTag : msh->elementTags[0]){
-        int o = omp_get_thread_num();
-        globalToLocalVec(elementTag, &localThreadVelVec[o]);
-        localThreadBuilds[o]->computeConvectionMatrix(elementTag, &localThreadVelVec[o]);
-        localToGlobalMat(elementTag, &localThreadBuilds[o]->localConvMat, &globalConvMat);
-    }
-    for(int x = 0; x < nThreads; x++){
-        delete(localThreadBuilds[x]);
-        VecDestroy(&localThreadVelVec[x]);
+        globalToLocalVec(elementTag, &localVelVec);
+        localBuild->computeConvectionMatrix(elementTag, &localVelVec);
+        localToGlobalMat(elementTag, &localBuild->localConvMat, &globalConvMat);
     }
 
     MatAssemblyBegin(globalConvMat, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(globalConvMat, MAT_FINAL_ASSEMBLY);
+    delete(localBuild);
     VecDestroy(&localVelVec);
 }
 

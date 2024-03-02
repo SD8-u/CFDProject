@@ -14,6 +14,7 @@ class LocalBuilder {
 
         bool conv;
         double dt;
+        double viscosity;
         size_t elementTag;
         Mat localGradMat;
         vector<Mat> basisMats;
@@ -40,7 +41,7 @@ class LocalBuilder {
         Mat localFullMat;
 
         LocalBuilder();
-        LocalBuilder(double dt);
+        LocalBuilder(double dt, double viscosity);
         ~LocalBuilder();
         void assembleMatrices(size_t elementTag);
         void computeConvectionMatrix(size_t elementTag, Vec *velocityVec);
