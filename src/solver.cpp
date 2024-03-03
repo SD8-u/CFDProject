@@ -20,7 +20,7 @@ Solver::Solver(Mesh* msh, double dt, double viscosity){
     KSPSetType(stp2Solver, KSPGMRES);
     KSPSetOperators(stp2Solver, globalBuild->globalFullMat, globalBuild->globalFullMat);
     //KSPGetPC(stp2Solver, &preConditioner);
-    //PCSetType(preConditioner, PCJACOBI);
+    //PCSetType(preConditioner, PCICC);
     KSPSetFromOptions(stp2Solver);
 }
 
@@ -66,29 +66,31 @@ void Solver::computeFirstStep(){
     VecSetFromOptions(tempVec);
 
     globalBuild->assembleConvectionMatrix();
-    MatConvert(globalBuild->globalMassMat, MATSAME, MAT_INITIAL_MATRIX, &tempMat);
+    //MatZeroEntries(globalBuild->globalConvMat);
+    MatConvert(globalBuild->globalConvMat, MATSAME, MAT_INITIAL_MATRIX, &tempMat);
     MatAssemblyBegin(tempMat, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(tempMat, MAT_FINAL_ASSEMBLY);
+    //MatView(globalBuild->globalConvMat, PETSC_VIEWER_STDOUT_WORLD);
 
     //Subtract half viscous + convection terms from right hand side
-    MatAXPY(tempMat, -1/2, globalBuild->globalViscMat, DIFFERENT_NONZERO_PATTERN);
-    MatAXPY(tempMat, -1/2, globalBuild->globalConvMat, DIFFERENT_NONZERO_PATTERN);
+    MatAXPY(tempMat, 1.0, globalBuild->globalViscMat, DIFFERENT_NONZERO_PATTERN);
+    MatAXPY(tempMat, 1.0, globalBuild->globalMassMat, DIFFERENT_NONZERO_PATTERN);
 
-    MatMult(tempMat, globalBuild->velocityVec, tempVec);
+    MatMult(globalBuild->globalMassMat, globalBuild->velocityVec, tempVec);
+
+    //Add viscous and convection terms to system of equations
+    //MatAXPY(tempMat, 1.0, globalBuild->globalViscMat, DIFFERENT_NONZERO_PATTERN);
+    //MatAXPY(tempMat, 1.0, globalBuild->globalConvMat, DIFFERENT_NONZERO_PATTERN);
 
     //Impose Dirichlet Conditions
     applyDirichletConditions(&tempMat, &tempVec, false);
-
-    //Add viscous and convection terms to system of equations
-    MatAXPY(tempMat, 1.0, globalBuild->globalViscMat, DIFFERENT_NONZERO_PATTERN);
-    MatAXPY(tempMat, 1.0, globalBuild->globalConvMat, DIFFERENT_NONZERO_PATTERN);
 
     //Solve system
     KSPCreate(PETSC_COMM_WORLD, &stp1Solver);
     KSPSetType(stp1Solver, KSPGMRES);
     KSPSetOperators(stp1Solver, tempMat, tempMat);
     //KSPGetPC(stp1Solver, &preConditoner);
-    //PCSetType(preConditoner, PCJACOBI);
+    //PCSetType(preConditoner, PCICC);
     KSPSetFromOptions(stp1Solver);
     KSPSolve(stp1Solver, tempVec, globalBuild->velocityVec);
 
@@ -132,6 +134,7 @@ void Solver::computeSecondStep(){
     applyDirichletConditions(&globalBuild->globalFullMat, &solVec, true);
     VecZeroEntries(globalBuild->nodalVec);
     KSPSolve(stp2Solver, solVec, globalBuild->nodalVec);
+
     applyDirichletConditions(&globalBuild->globalFullMat, &globalBuild->nodalVec, true);
     globalBuild->updateVelocity();
 

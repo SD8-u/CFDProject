@@ -146,6 +146,7 @@ void GlobalBuilder::assembleMatrices(){
 }
 
 void GlobalBuilder::assembleConvectionMatrix(){
+    MatZeroEntries(globalConvMat);
     Vec localVelVec;
     VecCreate(PETSC_COMM_WORLD, &localVelVec);
     VecSetSizes(localVelVec, PETSC_DECIDE, 12);

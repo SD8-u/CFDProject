@@ -174,12 +174,13 @@ void LocalBuilder::computeMassMatrix(){
         for(int j = 0; j < 12; j++){
             PetscScalar massVal = 0.0;
             int w = 0;
-            int offset = (j > 5 && i > 5) ? 6 : 0;
+            int offseti = (i > 5) ? 6 : 0;
+            int offsetj = (j > 5) ? 6 : 0;
             
             if(j < 6 && i < 6 || j > 5 && i > 5){
                 //Approximate integration using gauss points over the products of basis functions
                 for(int gp = 0; gp < 36; gp+=6){
-                    massVal += basisFuncs[(i-offset) + gp] * basisFuncs[(j-offset) + gp] 
+                    massVal += basisFuncs[(i%6) + gp] * basisFuncs[(j%6) + gp] 
                     * gaussWeights[w] * jdets[w++];
                 }
             }
@@ -243,15 +244,6 @@ void LocalBuilder::computeConvectionMatrix(size_t elementTag, Vec *velocityVec){
     buildInverseJacobian();
     MatZeroEntries(localConvMat);
     buildBasisGradMatrix();
-    vector<Mat> convMats = vector<Mat>(basisMats.size());
-
-    for(int m = 0; m < basisMats.size(); m++){
-        #pragma omp critical
-        {
-            MatMatMult(basisMats[m], basisGradMats[m], MAT_INITIAL_MATRIX, 
-            PETSC_DEFAULT, &convMats[m]);
-        }
-    }
 
     PetscInt ind[12] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
     PetscScalar v[12] = {0};
@@ -265,20 +257,24 @@ void LocalBuilder::computeConvectionMatrix(size_t elementTag, Vec *velocityVec){
             int w = 0;
             //Approximate integration using gauss points
             for(int gp = 0; gp < 36; gp+=6){
+                PetscScalar basisVal, gradX, gradY;
+                MatGetValue(basisMats[w], i % 6, 0, &basisVal);
+                MatGetValue(basisGradMats[w], 0, j, &gradX);
+                MatGetValue(basisGradMats[w], 1, j, &gradY);
+
+                double velU = 0, velV = 0;
+                velU = v[0] * basisFuncs[gp] + v[1] * basisFuncs[gp + 1] + 
+                v[2] * basisFuncs[gp + 2] + v[3] * basisFuncs[gp + 3] + 
+                v[4] * basisFuncs[gp + 4] + v[5] * basisFuncs[gp + 5];
+    
+                
+                velV = v[6] * basisFuncs[gp] + v[7] * basisFuncs[gp + 1] + 
+                v[8] * basisFuncs[gp + 2] + v[9] * basisFuncs[gp + 3] + 
+                v[10] * basisFuncs[gp + 4] + v[11] * basisFuncs[gp + 5];
+                
                 PetscScalar matVal;
-                MatGetValue(convMats[w], i, j, &matVal);
-                double vel = 0;
-                if(i < 6){
-                    vel = v[0] * basisFuncs[gp] + v[1] * basisFuncs[gp + 1] + 
-                    v[2] * basisFuncs[gp + 2] + v[3] * basisFuncs[gp + 3] + 
-                    v[4] * basisFuncs[gp + 4] + v[5] * basisFuncs[gp + 5];
-                }
-                else{
-                    vel = v[6] * basisFuncs[gp] + v[7] * basisFuncs[gp + 1] + 
-                    v[8] * basisFuncs[gp + 2] + v[9] * basisFuncs[gp + 3] + 
-                    v[10] * basisFuncs[gp + 4] + v[11] * basisFuncs[gp + 5];
-                }
-                convVal += (matVal * vel * gaussWeights[w] * jdets[w++]);
+                matVal = basisVal * (velU * gradX + velV * gradY);
+                convVal += (matVal * gaussWeights[w] * jdets[w++]);
             }
             
             MatSetValue(localConvMat, i, j, (convVal), INSERT_VALUES);
@@ -288,7 +284,7 @@ void LocalBuilder::computeConvectionMatrix(size_t elementTag, Vec *velocityVec){
     MatAssemblyBegin(localConvMat, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(localConvMat, MAT_FINAL_ASSEMBLY);
 
-    cleanUp(convMats);
+    //cleanUp(convMats);
     //cleanUp(basisGradMats);
 }
 
