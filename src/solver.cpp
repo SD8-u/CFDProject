@@ -66,11 +66,9 @@ void Solver::computeFirstStep(){
     VecSetFromOptions(tempVec);
 
     globalBuild->assembleConvectionMatrix();
-    //MatZeroEntries(globalBuild->globalConvMat);
     MatConvert(globalBuild->globalConvMat, MATSAME, MAT_INITIAL_MATRIX, &tempMat);
     MatAssemblyBegin(tempMat, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(tempMat, MAT_FINAL_ASSEMBLY);
-    //MatView(globalBuild->globalConvMat, PETSC_VIEWER_STDOUT_WORLD);
 
     //Subtract half viscous + convection terms from right hand side
     MatAXPY(tempMat, 1.0, globalBuild->globalViscMat, DIFFERENT_NONZERO_PATTERN);
@@ -80,7 +78,7 @@ void Solver::computeFirstStep(){
 
     //Add viscous and convection terms to system of equations
     //MatAXPY(tempMat, 1.0, globalBuild->globalViscMat, DIFFERENT_NONZERO_PATTERN);
-    //MatAXPY(tempMat, 1.0, globalBuild->globalConvMat, DIFFERENT_NONZERO_PATTERN);
+    //MatAXPY(tempMat, 1.0, globalBuild->globalMassMat, DIFFERENT_NONZERO_PATTERN);
 
     //Impose Dirichlet Conditions
     applyDirichletConditions(&tempMat, &tempVec, false);
@@ -93,6 +91,8 @@ void Solver::computeFirstStep(){
     //PCSetType(preConditoner, PCICC);
     KSPSetFromOptions(stp1Solver);
     KSPSolve(stp1Solver, tempVec, globalBuild->velocityVec);
+
+    //applyDirichletConditions(&tempMat, &globalBuild->velocityVec, true);
 
     //Cleanup
     VecDestroy(&tempVec);
@@ -127,7 +127,6 @@ void Solver::computeSecondStep(){
         VecGetValues(tempVec, 1, &ind, &val);
         VecSetValue(solVec, i, val, INSERT_VALUES);
     }
-
     VecAssemblyBegin(solVec);
     VecAssemblyEnd(solVec);
 
@@ -135,7 +134,7 @@ void Solver::computeSecondStep(){
     VecZeroEntries(globalBuild->nodalVec);
     KSPSolve(stp2Solver, solVec, globalBuild->nodalVec);
 
-    applyDirichletConditions(&globalBuild->globalFullMat, &globalBuild->nodalVec, true);
+    //applyDirichletConditions(&globalBuild->globalFullMat, &globalBuild->nodalVec, true);
     globalBuild->updateVelocity();
 
     VecDestroy(&solVec);
@@ -150,6 +149,38 @@ void Solver::computeTimeStep(int steps){
     }
 }
 
+void Solver::interpolateValues(vector<double> &coord, 
+vector<vector<double>> &solData, vector<size_t> &nodeTags){
+    int nComp, nOrien;
+    double pressure = 0, xv = 0, yv = 0;
+    double nodePre, nodeVx, nodeVy;
+    vector<double> basisFuncsVel, basisFuncsPre;
+
+    gmsh::model::mesh::getBasisFunctions(2, coord, "Lagrange", nComp, 
+    basisFuncsPre, nOrien);
+    gmsh::model::mesh::getBasisFunctions(9, coord, "Lagrange", nComp, 
+    basisFuncsVel, nOrien);
+    
+    for(int node = 0; node < nodeTags.size(); node++){
+        PetscInt pi = msh->nodes[nodeTags[node]].pid + msh->nNodes * 2;
+        PetscInt vxi = msh->nodes[nodeTags[node]].id;
+        PetscInt vyi = vxi + msh->nNodes;
+        VecGetValues(globalBuild->nodalVec, 1, &vxi, &nodeVx);
+        VecGetValues(globalBuild->nodalVec, 1, &vyi, &nodeVy);
+        VecGetValues(globalBuild->nodalVec, 1, &pi, &nodePre);
+        if(node < 3){
+            pressure += basisFuncsPre[node] * nodePre;
+        }
+
+        xv += basisFuncsVel[node] * nodeVx;
+        yv += basisFuncsVel[node] * nodeVy;
+    }
+    
+    solData[0].push_back(pressure); solData[1].push_back(xv);
+    solData[2].push_back(yv);
+    coord.clear();
+}
+
 vector<vector<double>> Solver::interpolateSolution(double resolution){
     size_t elementTag;
     int elementType;
@@ -157,15 +188,12 @@ vector<vector<double>> Solver::interpolateSolution(double resolution){
     double u, v, w;
     double xmax, ymax, zmax;
     double xmin, ymin, zmin;
-    int nComp, nOrien;
-    vector<double> coord, basisFuncsVel, basisFuncsPre;
+    vector<double> coord;
     vector<vector<double>> solData = vector<vector<double>>(5);
 
     gmsh::model::getBoundingBox(-1, -1, xmin, ymin, zmin, xmax, ymax, zmax);
     for(double x = xmin; x < xmax; x+=resolution){
         for(double y = ymin; y < ymax; y+=resolution){
-            double nodePre, nodeVx, nodeVy;
-            double pressure = 0, xv = 0, yv = 0;
             solData[3].push_back(x); solData[4].push_back(y);
 
             try{
@@ -179,31 +207,7 @@ vector<vector<double>> Solver::interpolateSolution(double resolution){
 
             coord.push_back(u); coord.push_back(v); coord.push_back(w);
 
-            gmsh::model::mesh::getBasisFunctions(2, coord, "Lagrange", nComp, 
-            basisFuncsPre, nOrien);
-            gmsh::model::mesh::getBasisFunctions(9, coord, "Lagrange", nComp, 
-            basisFuncsVel, nOrien);
-            
-            for(int node = 0; node < nodeTags.size(); node++){
-
-                PetscInt pi = msh->nodes[nodeTags[node]].pid + msh->nNodes * 2;
-                PetscInt vxi = msh->nodes[nodeTags[node]].id;
-                PetscInt vyi = vxi + msh->nNodes;
-
-                VecGetValues(globalBuild->nodalVec, 1, &vxi, &nodeVx);
-                VecGetValues(globalBuild->nodalVec, 1, &vyi, &nodeVy);
-                VecGetValues(globalBuild->nodalVec, 1, &pi, &nodePre);
-                if(node < 3){
-                    pressure += basisFuncsPre[node] * nodePre;
-                }
-
-                xv += basisFuncsVel[node] * nodeVx;
-                yv += basisFuncsVel[node] * nodeVy;
-            }
-            
-            solData[0].push_back(pressure); solData[1].push_back(xv);
-            solData[2].push_back(yv);
-            coord.clear();
+            interpolateValues(coord, solData, nodeTags);
         }
     }
     return solData;

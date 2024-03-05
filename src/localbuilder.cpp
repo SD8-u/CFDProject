@@ -180,7 +180,7 @@ void LocalBuilder::computeMassMatrix(){
             if(j < 6 && i < 6 || j > 5 && i > 5){
                 //Approximate integration using gauss points over the products of basis functions
                 for(int gp = 0; gp < 36; gp+=6){
-                    massVal += basisFuncs[(i%6) + gp] * basisFuncs[(j%6) + gp] 
+                    massVal += basisFuncs[(i-offseti) + gp] * basisFuncs[(j-offsetj) + gp] 
                     * gaussWeights[w] * jdets[w++];
                 }
             }
@@ -236,8 +236,6 @@ void LocalBuilder::computeViscosityMatrix(){
 }
 
 void LocalBuilder::computeConvectionMatrix(size_t elementTag, Vec *velocityVec){
-
-    Mat tempMat;
     this->elementTag = elementTag;
     vector<double> coords;
     gmsh::model::mesh::getJacobian(elementTag, gaussPoints, j, jdets, coords);
@@ -245,7 +243,6 @@ void LocalBuilder::computeConvectionMatrix(size_t elementTag, Vec *velocityVec){
     MatZeroEntries(localConvMat);
     buildBasisGradMatrix();
 
-    PetscInt ind[12] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11};
     PetscScalar v[12] = {0};
     for(int a = 0; a < 12; a++){
         VecGetValues(*velocityVec, 1, &a, &v[a]);
@@ -283,9 +280,6 @@ void LocalBuilder::computeConvectionMatrix(size_t elementTag, Vec *velocityVec){
 
     MatAssemblyBegin(localConvMat, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(localConvMat, MAT_FINAL_ASSEMBLY);
-
-    //cleanUp(convMats);
-    //cleanUp(basisGradMats);
 }
 
 void LocalBuilder::computeGradientMatrix(){
@@ -312,7 +306,7 @@ void LocalBuilder::computeGradientMatrix(){
 void LocalBuilder::computeFinalMatrix(){
     MatZeroEntries(localFullMat);
     MatScale(localMassMat, dt);
-    MatScale(localViscMat, viscosity);
+    //MatScale(localViscMat, viscosity);
     Mat localGradTMat;
 
     MatTranspose(localGradMat, MAT_INITIAL_MATRIX, &localGradTMat);
@@ -354,7 +348,7 @@ void LocalBuilder::computeFinalMatrix(){
 
     MatDestroy(&localGradTMat);
     MatScale(localMassMat, 1/dt);
-    MatScale(localViscMat, 1/viscosity);
+    //MatScale(localViscMat, 1/viscosity);
 }
 
 void LocalBuilder::assembleMatrices(size_t elementTag){

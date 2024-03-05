@@ -10,7 +10,7 @@ pybind11::tuple computeFlow(int refinement, int steps, double vel, double dt, do
    Solver* solver = new Solver(msh, dt, visc);
 
    solver->computeTimeStep(steps);
-   vector<vector<double>> solData = solver->interpolateSolution(0.03);
+   vector<vector<double>> solData = solver->interpolateSolution(0.02);
 
    pybind11::array_t<double> np_X(solData[3].size(), solData[3].data());
    pybind11::array_t<double> np_Y(solData[4].size(), solData[4].data());   
