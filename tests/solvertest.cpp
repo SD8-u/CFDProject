@@ -12,7 +12,8 @@ class SolverTest : public testing::Test {
         }
 
         void SetUp() override {
-            msh = new Mesh("geometry/example.geo", 4, 1);
+            Mesh::generateMesh("geometry/example.geo", 4);
+            msh = new Mesh("geometry/example.msh", 1);
             solver = new Solver(msh, 0.0001, 0.1);
         }
 

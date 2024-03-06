@@ -2,7 +2,7 @@
 #include <unordered_set>
 
 // Load Gmsh script and generate msh file
-void generateMesh(string filePath, int refinement, double vel){
+void Mesh::generateMesh(string filePath, int refinement){
     gmsh::merge(filePath);
     gmsh::model::geo::synchronize();
     gmsh::model::mesh::generate(2);
@@ -15,12 +15,11 @@ void generateMesh(string filePath, int refinement, double vel){
     gmsh::model::mesh::setOrder(2);
     
     gmsh::write("geometry/example.msh");
-    gmsh::open("geometry/example.msh");
 }
 
-Mesh::Mesh(string filePath, int refinement, double boundaryVel){
+Mesh::Mesh(string filePath, double boundaryVel){
 
-    generateMesh(filePath, refinement, boundaryVel);
+    gmsh::open(filePath);
     this->boundaryVel = boundaryVel;
 
     vector<size_t> nodeTags;

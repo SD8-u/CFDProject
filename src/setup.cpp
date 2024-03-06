@@ -15,7 +15,12 @@ pybind11::tuple computeFlow(int refinement, int steps, double vel, double dt, do
    pybind11::tuple result(5);
    result[0] = NULL; result[1] = NULL; result[2] = NULL; result[3] = NULL; result[4] = NULL;
 
-   Mesh *msh = new Mesh("geometry/example.geo", refinement, vel);
+   if(rank == 0)
+      Mesh::generateMesh("geometry/example.geo", refinement);
+
+   MPI_Barrier(MPI_COMM_WORLD);
+
+   Mesh *msh = new Mesh("geometry/example.msh", vel);
    Solver* solver = new Solver(msh, dt, visc);
    solver->computeTimeStep(steps);
 
@@ -33,7 +38,7 @@ pybind11::tuple computeFlow(int refinement, int steps, double vel, double dt, do
       result[3] = np_V;
       result[4] = np_P;
    }
-   
+
    delete(solver);
    delete(msh);
    gmsh::clear();
@@ -42,23 +47,13 @@ pybind11::tuple computeFlow(int refinement, int steps, double vel, double dt, do
 }
 
 void startUp(){
-   int rank;
-   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
-   if(rank == 0)
-      gmsh::initialize();
-
+   gmsh::initialize();
    PetscInitializeNoArguments();
 }
 
 void cleanUp(){
-   int rank;
-   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
-   if(rank == 0)
-      gmsh::finalize();
-
-   //PetscFinalize();
+   gmsh::finalize();
+   PetscFinalize();
 }
 
 PYBIND11_MODULE(bloodflow, m) {
@@ -71,9 +66,9 @@ PYBIND11_MODULE(bloodflow, m) {
 void computeFlowC(int refinement, int steps, double vel, double dt, double visc){
    PetscInitializeNoArguments();
    gmsh::initialize();
-   omp_set_num_threads(4);
 
-   Mesh *msh = new Mesh("geometry/example.geo", refinement, vel);
+   Mesh::generateMesh("geometry/example.geo", refinement);
+   Mesh *msh = new Mesh("geometry/example.msh", vel);
    Solver* solver = new Solver(msh, dt, visc);
 
    solver->computeTimeStep(steps);

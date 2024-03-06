@@ -31,6 +31,7 @@ class Mesh {
         map<size_t, vector<size_t>> elements;
         vector<PetscInt> dirichletIds;
 
-        Mesh(string filePath, int refinement, double boundaryVel);
+        Mesh(string filePath, double boundaryVel);
+        static void generateMesh(string filePath, int refinement);
         vector<vector<double>> getNodeCoords();
 };

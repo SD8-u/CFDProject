@@ -6,6 +6,10 @@ GlobalBuilder::GlobalBuilder(int dim, double dt, double visc, Mesh* msh){
     this->viscosity = visc;
     this->msh = msh;
 
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_split(MPI_COMM_WORLD, rank, 0, &this->comm);
+
     MatCreate(PETSC_COMM_WORLD, &globalMassMat);
     MatSetSizes(globalMassMat, PETSC_DECIDE, PETSC_DECIDE, 
     msh->nNodes * 2, msh->nNodes * 2);
@@ -45,6 +49,8 @@ GlobalBuilder::~GlobalBuilder(){
 }
 
 void GlobalBuilder::localToGlobalMat(size_t elementTag, Mat *localMat, Mat *globalMat, bool final=false){
+        PetscInt m, n;
+        MatGetOwnershipRange(*globalMat, &m, &n);
         int add = final ? 3 : 0;
         for(int i = 0; i < 12 + add; i++){
             int x, y;
@@ -65,12 +71,9 @@ void GlobalBuilder::localToGlobalMat(size_t elementTag, Mat *localMat, Mat *glob
                     y = msh->nodes[msh->elements[elementTag][j % 6]].pid;
                     y += msh->nNodes * 2;
                 }
-
-                PetscScalar matVal;
-                MatGetValue(*localMat, i, j, &matVal);
-                
-                #pragma omp critical
-                {
+                if(y >= m && y <= n){
+                    PetscScalar matVal;
+                    MatGetValue(*localMat, i, j, &matVal);
                     MatSetValue(*globalMat, x, y, matVal, ADD_VALUES);
                 }
             }
@@ -82,7 +85,18 @@ void GlobalBuilder::localToGlobalVec(bool full){
     if(full){
         vec = &nodalVec;
     }
-    for(size_t elementTag : msh->elementTags[0]){
+
+    int rank, size;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    int domainSize = (msh->elementTags[0].size()/size);
+    int domainStart = rank * domainSize;
+    int domainEnd = domainStart + domainSize + 
+    (msh->elementTags[0].size()%size) * (rank == size-1);
+
+    for(int e = 0; e < domainEnd; e++){
+        size_t elementTag = msh->elementTags[0][e];
         for(int i = 0; i < 6; i++){
             Node n = msh->nodes[msh->elements[elementTag][i]];
             int x = n.id;
@@ -119,10 +133,25 @@ void GlobalBuilder::globalToLocalVec(size_t elementTag, Vec *localVec){
 }
 
 void GlobalBuilder::assembleMatrices(){
-    localBuild = new LocalBuilder(dt, viscosity);
-    for(size_t elementTag : msh->elementTags[0]){
+    localBuild = new LocalBuilder(dt, viscosity, comm);
+    int rank, size;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-        int o = omp_get_thread_num();
+    int domainSize = (msh->elementTags[0].size()/size);
+    int domainStart = rank * domainSize;
+    int domainEnd = domainStart + domainSize + 
+    (msh->elementTags[0].size()%size) * (rank == size-1);
+
+    cout << "Size: "<< size << "\n";
+    cout << "Rank: "<< rank << "\n";
+    cout << "domain size: " << domainSize << "\n";
+    cout << "domain start: " << domainStart << "\n";
+    cout << "domain end: " << domainEnd << "\n";
+
+    for(int e = 0; e < domainEnd; e++){
+
+        size_t elementTag = msh->elementTags[0][e];
         localBuild->assembleMatrices(elementTag);
 
         localToGlobalMat(elementTag, &localBuild->localMassMat, &globalMassMat);
@@ -146,13 +175,24 @@ void GlobalBuilder::assembleMatrices(){
 void GlobalBuilder::assembleConvectionMatrix(){
     MatZeroEntries(globalConvMat);
     Vec localVelVec;
-    VecCreate(PETSC_COMM_WORLD, &localVelVec);
+    VecCreate(comm, &localVelVec);
     VecSetSizes(localVelVec, PETSC_DECIDE, 12);
     VecSetFromOptions(localVelVec);
 
-    localBuild = new LocalBuilder();
+    localBuild = new LocalBuilder(comm);
 
-    for(size_t elementTag : msh->elementTags[0]){
+    int rank, size;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    int domainSize = (msh->elementTags[0].size()/size);
+    int domainStart = rank * domainSize;
+    int domainEnd = domainStart + size + 
+    (msh->elementTags[0].size()%size) * (rank == size-1);
+
+    for(int e = 0; e < domainEnd; e++){
+        size_t elementTag = msh->elementTags[0][e];
+
         globalToLocalVec(elementTag, &localVelVec);
         localBuild->computeConvectionMatrix(elementTag, &localVelVec);
         localToGlobalMat(elementTag, &localBuild->localConvMat, &globalConvMat);

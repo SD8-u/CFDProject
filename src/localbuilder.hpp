@@ -25,6 +25,7 @@ class LocalBuilder {
         vector<double> basisFuncsGrad;
         vector<double> j;
         vector<double> jdets;
+        MPI_Comm comm;
 
         void setUp();
         void computeGradientMatrix();
@@ -40,8 +41,8 @@ class LocalBuilder {
         Mat localConvMat;
         Mat localFullMat;
 
-        LocalBuilder();
-        LocalBuilder(double dt, double viscosity);
+        LocalBuilder(MPI_Comm comm);
+        LocalBuilder(double dt, double viscosity, MPI_Comm comm);
         ~LocalBuilder();
         void assembleMatrices(size_t elementTag);
         void computeConvectionMatrix(size_t elementTag, Vec *velocityVec);

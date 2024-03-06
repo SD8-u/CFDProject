@@ -7,6 +7,7 @@ class GlobalBuilder {
         double viscosity;
         Mesh *msh;
         LocalBuilder *localBuild;
+        MPI_Comm comm;
         void localToGlobalVec(bool full);
         void globalToLocalVec(size_t elementTag, Vec *localVec);
         void localToGlobalMat(size_t elementTag, Mat *localMat, Mat *globalMat, bool final);
