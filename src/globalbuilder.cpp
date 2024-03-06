@@ -119,9 +119,7 @@ void GlobalBuilder::globalToLocalVec(size_t elementTag, Vec *localVec){
 }
 
 void GlobalBuilder::assembleMatrices(){
-
     localBuild = new LocalBuilder(dt, viscosity);
-
     for(size_t elementTag : msh->elementTags[0]){
 
         int o = omp_get_thread_num();

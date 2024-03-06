@@ -3,19 +3,19 @@
 
 // Load Gmsh script and generate msh file
 void generateMesh(string filePath, int refinement, double vel){
-   gmsh::merge(filePath);
-   gmsh::model::geo::synchronize();
-   gmsh::model::mesh::generate(2);
-
-   //Refine mesh uniformly
-   for(int x = 0; x < refinement; x++)
-      gmsh::model::mesh::refine();
-   
-   //Construct quadratic triangle elements
-   gmsh::model::mesh::setOrder(2);
-
-   gmsh::write("geometry/example.msh");
-   gmsh::open("geometry/example.msh");
+    gmsh::merge(filePath);
+    gmsh::model::geo::synchronize();
+    gmsh::model::mesh::generate(2);
+    
+    //Refine mesh uniformly
+    for(int x = 0; x < refinement; x++)
+        gmsh::model::mesh::refine();
+    
+    //Construct quadratic triangle elements
+    gmsh::model::mesh::setOrder(2);
+    
+    gmsh::write("geometry/example.msh");
+    gmsh::open("geometry/example.msh");
 }
 
 Mesh::Mesh(string filePath, int refinement, double boundaryVel){

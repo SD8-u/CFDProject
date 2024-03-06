@@ -155,7 +155,7 @@ void LocalBuilder::buildBasisGradMatrix(){
         MatAssemblyBegin(temp, MAT_FINAL_ASSEMBLY);
         MatAssemblyEnd(temp, MAT_FINAL_ASSEMBLY);
 
-        //Perform conversion from local coordinates to physical via inverse jacobian  
+        //Perform conversion from local coordinates to physical via inverse jacobian
         MatDestroy(&basisGradMats[m]);
         MatMatMult(inverseJacobian[m], temp, MAT_INITIAL_MATRIX, PETSC_DEFAULT, &basisGradMats[m]);
         MatDestroy(&temp);
@@ -199,18 +199,12 @@ void LocalBuilder::computeViscosityMatrix(){
     vector<Mat> viscMats = vector<Mat>(basisGradMats.size());
 
     for(int m = 0; m < basisGradMats.size(); m++){
-        #pragma omp critical
-        {
-            MatTranspose(basisGradMats[m], MAT_INITIAL_MATRIX, &basisGradMatsT[m]);
-        }
+        MatTranspose(basisGradMats[m], MAT_INITIAL_MATRIX, &basisGradMatsT[m]);
     }
 
     for(int m = 0; m < basisGradMats.size(); m++){
-        #pragma omp critical
-        {
-            MatMatMult(basisGradMatsT[m], basisGradMats[m], 
-            MAT_INITIAL_MATRIX, PETSC_DEFAULT, &viscMats[m]);
-        }
+        MatMatMult(basisGradMatsT[m], basisGradMats[m], 
+        MAT_INITIAL_MATRIX, PETSC_DEFAULT, &viscMats[m]);
     }
 
     //Enumerate the matrix

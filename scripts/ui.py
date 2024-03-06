@@ -1,7 +1,20 @@
-import plot
-import bloodflow
-from PIL import Image
+import sys
+import os
 import customtkinter
+import numpy as np
+from mpi4py import MPI
+from PIL import Image
+
+def call_parallel_solver(refinement, timesteps, velocity, dt, viscosity):
+    comm = MPI.COMM_SELF.Spawn(
+        sys.executable,
+        args = [os.path.dirname(os.path.abspath(__file__)) + '/solver.py', 
+                refinement, timesteps, velocity, dt, viscosity],
+        maxprocs=1
+    )
+
+    N = np.array(0, dtype='i')
+    comm.Reduce(None, [N, MPI.INT], op=MPI.SUM, root=MPI.ROOT)
 
 customtkinter.set_default_color_theme("dark-blue")
 
@@ -42,8 +55,8 @@ class OptionFrame(customtkinter.CTkFrame):
 
     #Execute simulation given parameters
     def button_callbck(self):
-        plot.generate_plot(int(self.refinement.get()), int(self.timesteps.get()), 
-                           float(self.velocity.get()), float(self.dt.get()), float(self.viscosity.get()))
+        call_parallel_solver(self.refinement.get(), self.timesteps.get(), 
+                           self.velocity.get(), self.dt.get(), self.viscosity.get())
         self.image_update()
 
 class App(customtkinter.CTk):
@@ -60,12 +73,10 @@ class App(customtkinter.CTk):
         self.option_frame.grid(row=0, column = 0, padx=20, pady=20, sticky="w")
 
 
-    #Execute simulation given parameters
+    #Update image following simulation execution
     def image_update(self):
         self.image = customtkinter.CTkImage(dark_image=Image.open("stream_plot.png"), size=(640, 480))
         self.label.configure(image=self.image)
 
-bloodflow.startUp()
 app = App()
 app.mainloop()
-bloodflow.cleanUp()

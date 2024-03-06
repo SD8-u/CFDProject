@@ -66,19 +66,19 @@ void Solver::computeFirstStep(){
     VecSetFromOptions(tempVec);
 
     globalBuild->assembleConvectionMatrix();
-    MatConvert(globalBuild->globalConvMat, MATSAME, MAT_INITIAL_MATRIX, &tempMat);
+    MatConvert(globalBuild->globalMassMat, MATSAME, MAT_INITIAL_MATRIX, &tempMat);
     MatAssemblyBegin(tempMat, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(tempMat, MAT_FINAL_ASSEMBLY);
 
     //Subtract half viscous + convection terms from right hand side
+    MatAXPY(tempMat, -1/2, globalBuild->globalViscMat, DIFFERENT_NONZERO_PATTERN);
+    MatAXPY(tempMat, -1/2, globalBuild->globalConvMat, DIFFERENT_NONZERO_PATTERN);
+
+    MatMult(tempMat, globalBuild->velocityVec, tempVec);
+
+    //Reapply viscous and convection terms to system of equations
     MatAXPY(tempMat, 1.0, globalBuild->globalViscMat, DIFFERENT_NONZERO_PATTERN);
-    MatAXPY(tempMat, 1.0, globalBuild->globalMassMat, DIFFERENT_NONZERO_PATTERN);
-
-    MatMult(globalBuild->globalMassMat, globalBuild->velocityVec, tempVec);
-
-    //Add viscous and convection terms to system of equations
-    //MatAXPY(tempMat, 1.0, globalBuild->globalViscMat, DIFFERENT_NONZERO_PATTERN);
-    //MatAXPY(tempMat, 1.0, globalBuild->globalMassMat, DIFFERENT_NONZERO_PATTERN);
+    MatAXPY(tempMat, 1.0, globalBuild->globalConvMat, DIFFERENT_NONZERO_PATTERN);
 
     //Impose Dirichlet Conditions
     applyDirichletConditions(&tempMat, &tempVec, false);

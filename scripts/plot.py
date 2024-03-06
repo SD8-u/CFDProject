@@ -1,11 +1,8 @@
-import bloodflow
 import matplotlib.pyplot as plt
 from matplotlib.tri import Triangulation
 import numpy as np
 
-def generate_plot(refinement, timesteps, velocity, dt, viscosity):
-    x, y, u, v, p = bloodflow.computeFlow(refinement, timesteps, velocity, dt, viscosity)
-    
+def generate_plot(x, y, u, v, p):
     tri = Triangulation(x, y)
     fig = plt.figure()
     ax = fig.add_subplot(111)
