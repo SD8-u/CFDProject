@@ -49,8 +49,6 @@ GlobalBuilder::~GlobalBuilder(){
 }
 
 void GlobalBuilder::localToGlobalMat(size_t elementTag, Mat *localMat, Mat *globalMat, bool final=false){
-        PetscInt m, n;
-        MatGetOwnershipRange(*globalMat, &m, &n);
         int add = final ? 3 : 0;
         for(int i = 0; i < 12 + add; i++){
             int x, y;
@@ -71,11 +69,9 @@ void GlobalBuilder::localToGlobalMat(size_t elementTag, Mat *localMat, Mat *glob
                     y = msh->nodes[msh->elements[elementTag][j % 6]].pid;
                     y += msh->nNodes * 2;
                 }
-                if(y >= m && y <= n){
-                    PetscScalar matVal;
-                    MatGetValue(*localMat, i, j, &matVal);
-                    MatSetValue(*globalMat, x, y, matVal, ADD_VALUES);
-                }
+                PetscScalar matVal;
+                MatGetValue(*localMat, i, j, &matVal);
+                MatSetValue(*globalMat, x, y, matVal, ADD_VALUES);
             }
         }
 }
@@ -86,17 +82,7 @@ void GlobalBuilder::localToGlobalVec(bool full){
         vec = &nodalVec;
     }
 
-    int rank, size;
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
-    int domainSize = (msh->elementTags[0].size()/size);
-    int domainStart = rank * domainSize;
-    int domainEnd = domainStart + domainSize + 
-    (msh->elementTags[0].size()%size) * (rank == size-1);
-
-    for(int e = 0; e < domainEnd; e++){
-        size_t elementTag = msh->elementTags[0][e];
+    for(size_t elementTag : msh->elementTags[0]){
         for(int i = 0; i < 6; i++){
             Node n = msh->nodes[msh->elements[elementTag][i]];
             int x = n.id;
@@ -119,17 +105,26 @@ void GlobalBuilder::localToGlobalVec(bool full){
 }
 
 void GlobalBuilder::globalToLocalVec(size_t elementTag, Vec *localVec){
+    Vec tempVec;
+    VecCreate(comm, &tempVec);
+    VecSetSizes(tempVec, PETSC_DECIDE, msh->nNodes * 2);
+    VecSetFromOptions(tempVec);
+    VecCopy(velocityVec, tempVec);
+
     for(int node = 0; node < 6; node++){
         PetscInt ix = msh->nodes[msh->elements[elementTag][node]].id;
         PetscInt iy = ix + msh->nNodes;
         PetscScalar vx, vy;
-        VecGetValues(velocityVec, 1, &ix, &vx);
-        VecGetValues(velocityVec, 1, &iy, &vy);
+        VecGetValues(tempVec, 1, &ix, &vx);
+        VecGetValues(tempVec, 1, &iy, &vy);
+        cout << "ix: " << ix << " iy: " << iy << " vx: " << vx << " vy: " << vy << "\n";
         VecSetValue(*localVec, node, vx, INSERT_VALUES);
         VecSetValue(*localVec, node + 6, vy, INSERT_VALUES);
     }
+
     VecAssemblyBegin(*localVec);
     VecAssemblyEnd(*localVec);
+    VecDestroy(&tempVec);
 }
 
 void GlobalBuilder::assembleMatrices(){
@@ -149,7 +144,7 @@ void GlobalBuilder::assembleMatrices(){
     cout << "domain start: " << domainStart << "\n";
     cout << "domain end: " << domainEnd << "\n";
 
-    for(int e = 0; e < domainEnd; e++){
+    for(int e = domainStart; e < domainEnd; e++){
 
         size_t elementTag = msh->elementTags[0][e];
         localBuild->assembleMatrices(elementTag);
@@ -159,6 +154,7 @@ void GlobalBuilder::assembleMatrices(){
         localToGlobalMat(elementTag, &localBuild->localFullMat, &globalFullMat, true);
     }
     delete(localBuild);
+
     MatAssemblyBegin(globalMassMat, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(globalMassMat, MAT_FINAL_ASSEMBLY);
 
@@ -187,21 +183,21 @@ void GlobalBuilder::assembleConvectionMatrix(){
 
     int domainSize = (msh->elementTags[0].size()/size);
     int domainStart = rank * domainSize;
-    int domainEnd = domainStart + size + 
+    int domainEnd = domainStart + domainSize + 
     (msh->elementTags[0].size()%size) * (rank == size-1);
 
-    for(int e = 0; e < domainEnd; e++){
+    for(int e = domainStart; e < domainEnd; e++){
         size_t elementTag = msh->elementTags[0][e];
 
         globalToLocalVec(elementTag, &localVelVec);
         localBuild->computeConvectionMatrix(elementTag, &localVelVec);
         localToGlobalMat(elementTag, &localBuild->localConvMat, &globalConvMat);
     }
-
     MatAssemblyBegin(globalConvMat, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(globalConvMat, MAT_FINAL_ASSEMBLY);
     delete(localBuild);
     VecDestroy(&localVelVec);
+    cout << "done\n";
 }
 
 void GlobalBuilder::assembleVectors(){

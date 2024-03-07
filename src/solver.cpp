@@ -19,7 +19,7 @@ Solver::Solver(Mesh* msh, double dt, double viscosity){
     KSPCreate(PETSC_COMM_WORLD, &stp2Solver);
     KSPSetType(stp2Solver, KSPGMRES);
     KSPSetOperators(stp2Solver, globalBuild->globalFullMat, globalBuild->globalFullMat);
-    KSPSetInitialGuessNonzero(stp2Solver, PETSC_TRUE);
+    //KSPSetInitialGuessNonzero(stp2Solver, PETSC_TRUE);
     //KSPGetPC(stp2Solver, &preConditioner);
     //PCSetType(preConditioner, PCICC);
     KSPSetFromOptions(stp2Solver);
@@ -57,11 +57,6 @@ void Solver::computeFirstStep(){
     Vec tempVec;
     PC preConditoner;
 
-    MatCreate(PETSC_COMM_WORLD, &tempMat);
-    MatSetSizes(tempMat, PETSC_DECIDE, PETSC_DECIDE, 
-    msh->nNodes * 2, msh->nNodes * 2);
-    MatSetFromOptions(tempMat);
-    MatSetUp(tempMat);
     cout << "2\n";
     VecCreate(PETSC_COMM_WORLD, &tempVec);
     VecSetSizes(tempVec, PETSC_DECIDE, msh->nNodes * 2);
@@ -69,8 +64,9 @@ void Solver::computeFirstStep(){
 
     globalBuild->assembleConvectionMatrix();
     MatConvert(globalBuild->globalMassMat, MATSAME, MAT_INITIAL_MATRIX, &tempMat);
-    MatAssemblyBegin(tempMat, MAT_FINAL_ASSEMBLY);
-    MatAssemblyEnd(tempMat, MAT_FINAL_ASSEMBLY);
+
+    //MatAssemblyBegin(tempMat, MAT_FINAL_ASSEMBLY);
+    //MatAssemblyEnd(tempMat, MAT_FINAL_ASSEMBLY);
     cout << "3\n";
     //Subtract half viscous + convection terms from right hand side
     MatAXPY(tempMat, -1/2, globalBuild->globalViscMat, DIFFERENT_NONZERO_PATTERN);
@@ -83,20 +79,23 @@ void Solver::computeFirstStep(){
     MatAXPY(tempMat, 1.0, globalBuild->globalConvMat, DIFFERENT_NONZERO_PATTERN);
 
     //Impose Dirichlet Conditions
-    //applyDirichletConditions(&tempMat, &tempVec, false);
+    applyDirichletConditions(&tempMat, &tempVec, false);
 
+    //MatView(globalBuild->globalConvMat, PETSC_VIEWER_STDOUT_WORLD);
     //Solve system
     cout << "4\n";
     KSPCreate(PETSC_COMM_WORLD, &stp1Solver);
     KSPSetType(stp1Solver, KSPGMRES);
     KSPSetOperators(stp1Solver, tempMat, tempMat);
+    cout << "5\n";
     //KSPGetPC(stp1Solver, &preConditoner);
     //PCSetType(preConditoner, PCICC);
     KSPSetFromOptions(stp1Solver);
+    cout << "5a\n";
     KSPSolve(stp1Solver, tempVec, globalBuild->velocityVec);
-    VecView(tempVec, PETSC_VIEWER_STDOUT_WORLD);
+    cout << "5b\n";
     //applyDirichletConditions(&tempMat, &globalBuild->velocityVec, true);
-
+    cout << "5c\n";
     //Cleanup
     VecDestroy(&tempVec);
     MatDestroy(&tempMat);
@@ -115,32 +114,34 @@ void Solver::computeSecondStep(){
 
     VecSetFromOptions(tempVec);
     VecSetFromOptions(solVec);
-
+    cout << "6\n";
     //MatDuplicate(globalBuild->globalMassMat, MAT_COPY_VALUES, &tempMat);
     //MatAXPY(tempMat, -1.0, globalBuild->globalViscMat, DIFFERENT_NONZERO_PATTERN);
     //MatMult(tempMat, globalBuild->velocityVec, tempVec);
     //MatDestroy(&tempMat);
-    
-    MatMult(globalBuild->globalMassMat, globalBuild->velocityVec, tempVec);
+    cout << "7\n";
     VecZeroEntries(solVec);
-
-    for(int i = 0; i < msh->nNodes * 2; i++){
-        PetscInt ind = i;
-        PetscScalar val;
-        VecGetValues(tempVec, 1, &ind, &val);
-        VecSetValue(solVec, i, val, INSERT_VALUES);
-    }
     VecAssemblyBegin(solVec);
     VecAssemblyEnd(solVec);
-
+    MatMult(globalBuild->globalMassMat, globalBuild->velocityVec, solVec);
+    //VecView(tempVec, PETSC_VIEWER_STDOUT_WORLD);
+    //for(int i = 0; i < msh->nNodes * 2; i++){
+    //    PetscInt ind = i;
+    //    PetscScalar val;
+    //    VecGetValues(tempVec, 1, &ind, &val);
+    //    VecSetValue(solVec, i, val, INSERT_VALUES);
+    //}
+    //VecAssemblyBegin(solVec);
+    //VecAssemblyEnd(solVec);
+    cout << "8\n";
     applyDirichletConditions(&globalBuild->globalFullMat, &solVec, true);
     VecZeroEntries(globalBuild->nodalVec);
     KSPSolve(stp2Solver, solVec, globalBuild->nodalVec);
-    VecView(solVec, PETSC_VIEWER_STDOUT_WORLD);
 
+    cout << "9\n";
     //applyDirichletConditions(&globalBuild->globalFullMat, &globalBuild->nodalVec, true);
     globalBuild->updateVelocity();
-
+    cout << "10\n";
     VecDestroy(&solVec);
     VecDestroy(&tempVec);
 }
