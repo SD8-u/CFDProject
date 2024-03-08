@@ -20,8 +20,8 @@ Solver::Solver(Mesh* msh, double dt, double viscosity){
     KSPSetType(stp2Solver, KSPGMRES);
     KSPSetOperators(stp2Solver, globalBuild->globalFullMat, globalBuild->globalFullMat);
     //KSPSetInitialGuessNonzero(stp2Solver, PETSC_TRUE);
-    //KSPGetPC(stp2Solver, &preConditioner);
-    //PCSetType(preConditioner, PCICC);
+    KSPGetPC(stp2Solver, &preConditioner);
+    PCSetType(preConditioner, PCASM);
     KSPSetFromOptions(stp2Solver);
 }
 
@@ -32,32 +32,37 @@ Solver::~Solver(){
 
 void Solver::applyDirichletConditions(Mat *m, Vec *v, bool expl){
     PetscInt* rows = msh->dirichletIds.data();
-
+    int high, low;
+    VecGetOwnershipRange(*v, &low, &high);
     for(int i = 0; i < msh->nNodes; i++){
         Node n = msh->nodes[msh->nodeIds[i]];
         if(n.boundary || n.inlet) {
-            VecSetValue(*v, i, n.velocity[0], INSERT_VALUES);
-            VecSetValue(*v, i + msh->nNodes, n.velocity[1], INSERT_VALUES);
+            if(i >= low && i < high){
+                VecSetValue(*v, i, n.velocity[0], INSERT_VALUES);
+            }
+            if(i + msh->nNodes >= low && i + msh->nNodes < high) {
+                VecSetValue(*v, i + msh->nNodes, n.velocity[1], INSERT_VALUES);
+            }
         }
     }
 
+    VecAssemblyBegin(*v);
+    VecAssemblyEnd(*v);
+
     if(!expl){
-        cout << "4\n";
         MatZeroRows(*m, msh->dirichletIds.size(), rows, 1.0, *v, *v);
     }
     MatAssemblyBegin(*m, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(*m, MAT_FINAL_ASSEMBLY);
-    VecAssemblyBegin(*v);
-    VecAssemblyEnd(*v);
 }
 
 void Solver::computeFirstStep(){
-    cout << "1\n";
+
     Mat tempMat;
     Vec tempVec;
     PC preConditoner;
 
-    cout << "2\n";
+
     VecCreate(PETSC_COMM_WORLD, &tempVec);
     VecSetSizes(tempVec, PETSC_DECIDE, msh->nNodes * 2);
     VecSetFromOptions(tempVec);
@@ -65,9 +70,6 @@ void Solver::computeFirstStep(){
     globalBuild->assembleConvectionMatrix();
     MatConvert(globalBuild->globalMassMat, MATSAME, MAT_INITIAL_MATRIX, &tempMat);
 
-    //MatAssemblyBegin(tempMat, MAT_FINAL_ASSEMBLY);
-    //MatAssemblyEnd(tempMat, MAT_FINAL_ASSEMBLY);
-    cout << "3\n";
     //Subtract half viscous + convection terms from right hand side
     MatAXPY(tempMat, -1/2, globalBuild->globalViscMat, DIFFERENT_NONZERO_PATTERN);
     MatAXPY(tempMat, -1/2, globalBuild->globalConvMat, DIFFERENT_NONZERO_PATTERN);
@@ -81,21 +83,19 @@ void Solver::computeFirstStep(){
     //Impose Dirichlet Conditions
     applyDirichletConditions(&tempMat, &tempVec, false);
 
-    //MatView(globalBuild->globalConvMat, PETSC_VIEWER_STDOUT_WORLD);
     //Solve system
-    cout << "4\n";
     KSPCreate(PETSC_COMM_WORLD, &stp1Solver);
     KSPSetType(stp1Solver, KSPGMRES);
     KSPSetOperators(stp1Solver, tempMat, tempMat);
-    cout << "5\n";
+
     //KSPGetPC(stp1Solver, &preConditoner);
     //PCSetType(preConditoner, PCICC);
     KSPSetFromOptions(stp1Solver);
-    cout << "5a\n";
+
     KSPSolve(stp1Solver, tempVec, globalBuild->velocityVec);
-    cout << "5b\n";
+
     //applyDirichletConditions(&tempMat, &globalBuild->velocityVec, true);
-    cout << "5c\n";
+
     //Cleanup
     VecDestroy(&tempVec);
     MatDestroy(&tempMat);
@@ -114,34 +114,38 @@ void Solver::computeSecondStep(){
 
     VecSetFromOptions(tempVec);
     VecSetFromOptions(solVec);
-    cout << "6\n";
+
     //MatDuplicate(globalBuild->globalMassMat, MAT_COPY_VALUES, &tempMat);
     //MatAXPY(tempMat, -1.0, globalBuild->globalViscMat, DIFFERENT_NONZERO_PATTERN);
     //MatMult(tempMat, globalBuild->velocityVec, tempVec);
     //MatDestroy(&tempMat);
-    cout << "7\n";
-    VecZeroEntries(solVec);
+
+    MatMult(globalBuild->globalMassMat, globalBuild->velocityVec, tempVec);
+    //VecView(tempVec, PETSC_VIEWER_STDOUT_WORLD);
+    
+    PetscInt gblIndices[msh->nNodes * 2];
+    for(int i = 0; i < msh->nNodes * 2; i++){
+        gblIndices[i] = i;
+    }
+    IS is;
+    VecScatter vs;
+    PetscReal max;
+    ISCreateGeneral(PETSC_COMM_WORLD, msh->nNodes * 2, gblIndices, PETSC_COPY_VALUES, &is);
+    VecScatterCreate(tempVec, is, solVec, is, &vs);
+    VecScatterBegin(vs, tempVec, solVec, INSERT_VALUES, SCATTER_FORWARD);
+    VecScatterEnd(vs, tempVec, solVec, INSERT_VALUES, SCATTER_FORWARD);
+
     VecAssemblyBegin(solVec);
     VecAssemblyEnd(solVec);
-    MatMult(globalBuild->globalMassMat, globalBuild->velocityVec, solVec);
-    //VecView(tempVec, PETSC_VIEWER_STDOUT_WORLD);
-    //for(int i = 0; i < msh->nNodes * 2; i++){
-    //    PetscInt ind = i;
-    //    PetscScalar val;
-    //    VecGetValues(tempVec, 1, &ind, &val);
-    //    VecSetValue(solVec, i, val, INSERT_VALUES);
-    //}
-    //VecAssemblyBegin(solVec);
-    //VecAssemblyEnd(solVec);
-    cout << "8\n";
-    applyDirichletConditions(&globalBuild->globalFullMat, &solVec, true);
-    VecZeroEntries(globalBuild->nodalVec);
-    KSPSolve(stp2Solver, solVec, globalBuild->nodalVec);
+    VecScatterDestroy(&vs);
+    ISDestroy(&is);
 
-    cout << "9\n";
+    applyDirichletConditions(&globalBuild->globalFullMat, &solVec, true);
+    KSPSolve(stp2Solver, solVec, globalBuild->nodalVec);
+    //MatView(globalBuild->globalConvMat, PETSC_VIEWER_STDOUT_WORLD);
+
     //applyDirichletConditions(&globalBuild->globalFullMat, &globalBuild->nodalVec, true);
     globalBuild->updateVelocity();
-    cout << "10\n";
     VecDestroy(&solVec);
     VecDestroy(&tempVec);
 }
@@ -155,7 +159,7 @@ void Solver::computeTimeStep(int steps){
 }
 
 void Solver::interpolateValues(vector<double> &coord, 
-vector<vector<double>> &solData, vector<size_t> &nodeTags){
+vector<vector<double>> &solData, vector<size_t> &nodeTags, Vec *solVec){
     int nComp, nOrien;
     double pressure = 0, xv = 0, yv = 0;
     double nodePre, nodeVx, nodeVy;
@@ -170,9 +174,9 @@ vector<vector<double>> &solData, vector<size_t> &nodeTags){
         PetscInt pi = msh->nodes[nodeTags[node]].pid + msh->nNodes * 2;
         PetscInt vxi = msh->nodes[nodeTags[node]].id;
         PetscInt vyi = vxi + msh->nNodes;
-        VecGetValues(globalBuild->nodalVec, 1, &vxi, &nodeVx);
-        VecGetValues(globalBuild->nodalVec, 1, &vyi, &nodeVy);
-        VecGetValues(globalBuild->nodalVec, 1, &pi, &nodePre);
+        VecGetValues(*solVec, 1, &vxi, &nodeVx);
+        VecGetValues(*solVec, 1, &vyi, &nodeVy);
+        VecGetValues(*solVec, 1, &pi, &nodePre);
         if(node < 3){
             pressure += basisFuncsPre[node] * nodePre;
         }
@@ -186,7 +190,20 @@ vector<vector<double>> &solData, vector<size_t> &nodeTags){
     coord.clear();
 }
 
-vector<vector<double>> Solver::interpolateSolution(double resolution){
+vector<vector<double>> Solver::interpolateSolution(double resolution, int rank){
+    Vec solVec;
+    VecScatter vs;
+    vector<vector<double>> solData = vector<vector<double>>(5);
+
+    VecScatterCreateToZero(globalBuild->nodalVec, &vs, &solVec);
+    VecScatterBegin(vs, globalBuild->nodalVec, solVec, INSERT_VALUES, SCATTER_FORWARD);
+    VecScatterEnd(vs, globalBuild->nodalVec, solVec, INSERT_VALUES, SCATTER_FORWARD);
+
+    if(rank != 0){
+        VecDestroy(&solVec);
+        return solData;
+    }
+
     size_t elementTag;
     int elementType;
     vector<size_t> nodeTags;
@@ -194,7 +211,6 @@ vector<vector<double>> Solver::interpolateSolution(double resolution){
     double xmax, ymax, zmax;
     double xmin, ymin, zmin;
     vector<double> coord;
-    vector<vector<double>> solData = vector<vector<double>>(5);
 
     gmsh::model::getBoundingBox(-1, -1, xmin, ymin, zmin, xmax, ymax, zmax);
     for(double x = xmin; x < xmax; x+=resolution){
@@ -212,8 +228,10 @@ vector<vector<double>> Solver::interpolateSolution(double resolution){
 
             coord.push_back(u); coord.push_back(v); coord.push_back(w);
 
-            interpolateValues(coord, solData, nodeTags);
+            interpolateValues(coord, solData, nodeTags, &solVec);
         }
     }
+    //VecView(solVec, PETSC_VIEWER_STDOUT_WORLD);
+    VecDestroy(&solVec);
     return solData;
 }

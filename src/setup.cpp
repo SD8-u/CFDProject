@@ -24,8 +24,9 @@ pybind11::tuple computeFlow(int refinement, int steps, double vel, double dt, do
    Solver* solver = new Solver(msh, dt, visc);
    solver->computeTimeStep(steps);
 
+   vector<vector<double>> solData = solver->interpolateSolution(0.02, rank);
+
    if(rank == 0){
-      vector<vector<double>> solData = solver->interpolateSolution(0.02);
       pybind11::array_t<double> np_X(solData[3].size(), solData[3].data());
       pybind11::array_t<double> np_Y(solData[4].size(), solData[4].data());   
       pybind11::array_t<double> np_U(solData[1].size(), solData[1].data());
@@ -72,7 +73,7 @@ void computeFlowC(int refinement, int steps, double vel, double dt, double visc)
    Solver* solver = new Solver(msh, dt, visc);
 
    solver->computeTimeStep(steps);
-   vector<vector<double>> solData = solver->interpolateSolution(0.01);
+   vector<vector<double>> solData = solver->interpolateSolution(0.01, 0);
 
    delete(solver);
    gmsh::finalize();

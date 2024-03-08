@@ -81,22 +81,33 @@ void GlobalBuilder::localToGlobalVec(bool full){
     if(full){
         vec = &nodalVec;
     }
-
+    int high, low;
+    VecGetOwnershipRange(*vec, &low, &high);
     for(size_t elementTag : msh->elementTags[0]){
         for(int i = 0; i < 6; i++){
             Node n = msh->nodes[msh->elements[elementTag][i]];
             int x = n.id;
             int y = n.pid;
             if(n.inlet){
-                VecSetValue(*vec, x, n.velocity[0], INSERT_VALUES);
-                VecSetValue(*vec, x + msh->nNodes, n.velocity[1], INSERT_VALUES);
+                if(x >= low && x < high) {
+                    VecSetValue(*vec, x, n.velocity[0], INSERT_VALUES);
+                }
+                if(x + msh->nNodes >= low && x + msh->nNodes < high) {
+                    VecSetValue(*vec, x + msh->nNodes, n.velocity[1], INSERT_VALUES);
+                }
             }
             else{
-                VecSetValue(*vec, x, 0.0, INSERT_VALUES);
-                VecSetValue(*vec, x + msh->nNodes, 0.0, INSERT_VALUES);
+                if(x >= low && x < high){
+                    VecSetValue(*vec, x, 0.0, INSERT_VALUES);
+                }
+                if(x + msh->nNodes >= low && x + msh->nNodes < high) {
+                    VecSetValue(*vec, x + msh->nNodes, 0.0, INSERT_VALUES);
+                }
             }
             if(i < 3 && full){
-                VecSetValue(*vec, 2 * msh->nNodes + y, n.pressure, INSERT_VALUES);
+                if(y + 2 * msh->nNodes >= low && y + 2 * msh->nNodes < high) {
+                    VecSetValue(*vec, 2 * msh->nNodes + y, n.pressure, INSERT_VALUES);
+                }
             }
         }
     }
@@ -105,26 +116,26 @@ void GlobalBuilder::localToGlobalVec(bool full){
 }
 
 void GlobalBuilder::globalToLocalVec(size_t elementTag, Vec *localVec){
-    Vec tempVec;
-    VecCreate(comm, &tempVec);
-    VecSetSizes(tempVec, PETSC_DECIDE, msh->nNodes * 2);
-    VecSetFromOptions(tempVec);
-    VecCopy(velocityVec, tempVec);
+    PetscInt gblIndices[12];
 
     for(int node = 0; node < 6; node++){
         PetscInt ix = msh->nodes[msh->elements[elementTag][node]].id;
         PetscInt iy = ix + msh->nNodes;
         PetscScalar vx, vy;
-        VecGetValues(tempVec, 1, &ix, &vx);
-        VecGetValues(tempVec, 1, &iy, &vy);
-        cout << "ix: " << ix << " iy: " << iy << " vx: " << vx << " vy: " << vy << "\n";
-        VecSetValue(*localVec, node, vx, INSERT_VALUES);
-        VecSetValue(*localVec, node + 6, vy, INSERT_VALUES);
+        gblIndices[node] = ix;
+        gblIndices[node + 6] = iy;
     }
+    IS is;
+    VecScatter vs;
+    ISCreateGeneral(PETSC_COMM_WORLD, 12, gblIndices, PETSC_COPY_VALUES, &is);
+    VecScatterCreate(velocityVec, is, *localVec, NULL, &vs);
+    VecScatterBegin(vs, velocityVec, *localVec, INSERT_VALUES, SCATTER_FORWARD);
+    VecScatterEnd(vs, velocityVec, *localVec, INSERT_VALUES, SCATTER_FORWARD);
 
+    VecScatterDestroy(&vs);
+    ISDestroy(&is);
     VecAssemblyBegin(*localVec);
     VecAssemblyEnd(*localVec);
-    VecDestroy(&tempVec);
 }
 
 void GlobalBuilder::assembleMatrices(){
@@ -197,7 +208,6 @@ void GlobalBuilder::assembleConvectionMatrix(){
     MatAssemblyEnd(globalConvMat, MAT_FINAL_ASSEMBLY);
     delete(localBuild);
     VecDestroy(&localVelVec);
-    cout << "done\n";
 }
 
 void GlobalBuilder::assembleVectors(){
@@ -206,15 +216,19 @@ void GlobalBuilder::assembleVectors(){
 }
 
 void GlobalBuilder::updateVelocity(){
-    PetscScalar max = 0;
+    PetscInt gblIndices[msh->nNodes * 2];
     for(int i = 0; i < msh->nNodes * 2; i++){
-        PetscInt ind = i;
-        PetscScalar val;
-        VecGetValues(nodalVec, 1, &ind, &val);
-        max = val > max ? val : max;
-        VecSetValue(velocityVec, i, val, INSERT_VALUES);
+        gblIndices[i] = i;
     }
-    cout << "MAX (instability metric): " << max << "\n";
+    IS is;
+    VecScatter vs;
+    PetscReal max;
+    ISCreateGeneral(PETSC_COMM_WORLD, msh->nNodes * 2, gblIndices, PETSC_COPY_VALUES, &is);
+    VecScatterCreate(nodalVec, is, velocityVec, is, &vs);
+    VecScatterBegin(vs, nodalVec, velocityVec, INSERT_VALUES, SCATTER_FORWARD);
+    VecScatterEnd(vs, nodalVec, velocityVec, INSERT_VALUES, SCATTER_FORWARD);
     VecAssemblyBegin(velocityVec);
     VecAssemblyEnd(velocityVec);
+    VecMax(velocityVec, NULL, &max);
+    cout << "MAX (instability metric): " << max << "\n";
 }
