@@ -27,7 +27,7 @@ class LocalBuilderTest : public testing::Test {
 };
 
 TEST_F(LocalBuilderTest, LocalBuilderMatSize) {
-    build = new LocalBuilder(0.01, 1, MPI_COMM_WORLD);
+    build = new LocalBuilder(0.01, 1);
     build->assembleMatrices(msh->elementTags[0][0]);
     PetscInt row, col;
     MatGetSize(build->localMassMat, &row, &col);
@@ -42,7 +42,7 @@ TEST_F(LocalBuilderTest, LocalBuilderMatSize) {
 }
 
 TEST_F(LocalBuilderTest, LocalBuilderConvSize) {
-    build = new LocalBuilder(MPI_COMM_WORLD);
+    build = new LocalBuilder();
     Vec velVec;
     VecCreate(PETSC_COMM_WORLD, &velVec);
     VecSetSizes(velVec, PETSC_DECIDE, 12);
@@ -60,7 +60,7 @@ TEST_F(LocalBuilderTest, LocalBuilderConvSize) {
 }
 
 TEST_F(LocalBuilderTest, LocalBuilderNonZeroMat) {
-    build = new LocalBuilder(0.01, 1, MPI_COMM_WORLD);
+    build = new LocalBuilder(0.01, 1);
     build->assembleMatrices(msh->elementTags[0][0]);
     double massVal = 0, viscVal = 0, fullVal = 0;
     for(int i = 0; i < 15; i++){
@@ -84,7 +84,7 @@ TEST_F(LocalBuilderTest, LocalBuilderNonZeroMat) {
 
 
 TEST_F(LocalBuilderTest, LocalBuilderNonZeroConvMat) {
-    build = new LocalBuilder(MPI_COMM_WORLD);
+    build = new LocalBuilder();
     Vec velVec;
     VecCreate(PETSC_COMM_WORLD, &velVec);
     VecSetSizes(velVec, PETSC_DECIDE, 12);

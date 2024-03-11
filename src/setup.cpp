@@ -66,14 +66,26 @@ void computeFlowC(int refinement, int steps, double vel, double dt, double visc)
    PetscInitializeNoArguments();
    gmsh::initialize();
 
-   Mesh::generateMesh("geometry/example.geo", refinement);
+   int size;
+   MPI_Comm_size(MPI_COMM_WORLD, &size);
+   int rank;
+   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+   printf("Processor Rank %d out of %d\n", rank, size);
+
+   if(rank == 0)
+      Mesh::generateMesh("geometry/example.geo", refinement);
+
+   MPI_Barrier(MPI_COMM_WORLD);
+
    Mesh *msh = new Mesh("geometry/example.msh", vel);
    Solver* solver = new Solver(msh, dt, visc);
 
    solver->computeTimeStep(steps);
-   vector<vector<double>> solData = solver->interpolateSolution(0.01, 0);
+   vector<vector<double>> solData = solver->interpolateSolution(0.02, rank);
 
    delete(solver);
+   delete(msh);
+
    gmsh::finalize();
    PetscFinalize();
 }

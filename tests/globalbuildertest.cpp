@@ -59,18 +59,18 @@ TEST_F(GlobalBuilderTest, GlobalBuilderVecSize) {
     ASSERT_EQ(size, msh->nNodes * 2 + msh->nLinear);
 }
 
-TEST_F(GlobalBuilderTest, GlobalBuilderVelUpdate) {
-    build->assembleVectors();
-    for(int i = 0; i < msh->nNodes * 2 + msh->nLinear; i++){
-        VecSetValue(build->nodalVec, i, 1, INSERT_VALUES);
-    }
-    build->updateVelocity();
-    for(int i = 0; i < msh->nNodes * 2; i++){
-        PetscScalar val;
-        VecGetValues(build->velocityVec, 1, &i, &val);
-        ASSERT_EQ(val, 1);
-    }
-}
+//TEST_F(GlobalBuilderTest, GlobalBuilderVelUpdate) {
+//    build->assembleVectors();
+//    for(int i = 0; i < msh->nNodes * 2 + msh->nLinear; i++){
+//        VecSetValue(build->nodalVec, i, 1, INSERT_VALUES);
+//    }
+//    build->updateVelocity();
+//    for(int i = 0; i < msh->nNodes * 2; i++){
+//        PetscScalar val;
+//        VecGetValues(build->velocityVec, 1, &i, &val);
+//        ASSERT_EQ(val, 1);
+//    }
+//}
 
 TEST_F(GlobalBuilderTest, GlobalBuilderNonZeroMat) {
     build->assembleVectors();

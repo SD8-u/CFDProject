@@ -1,5 +1,13 @@
 #include "solver.hpp"
 
+void Solver::updateVectors(Vec *vec1, Vec *vec2, bool vel){
+    VecScatter *vecScatter = vel ? &vecScatter1 : &vecScatter2;
+    VecScatterBegin(*vecScatter, *vec1, *vec2, INSERT_VALUES, SCATTER_FORWARD);
+    VecScatterEnd(*vecScatter, *vec1, *vec2, INSERT_VALUES, SCATTER_FORWARD);
+    VecAssemblyBegin(*vec2);
+    VecAssemblyEnd(*vec2);
+}
+
 Solver::Solver(Mesh* msh, double dt, double viscosity){
     Vec tempVec;
     this->msh = msh;
@@ -23,10 +31,20 @@ Solver::Solver(Mesh* msh, double dt, double viscosity){
     KSPGetPC(stp2Solver, &preConditioner);
     PCSetType(preConditioner, PCASM);
     KSPSetFromOptions(stp2Solver);
+
+    PetscInt vecIndices[msh->nNodes * 2];
+    for(int i = 0; i < msh->nNodes * 2; i++) vecIndices[i] = i;
+
+    ISCreateGeneral(PETSC_COMM_WORLD, msh->nNodes * 2, vecIndices, PETSC_COPY_VALUES, &vecMapping);
+    VecScatterCreate(globalBuild->nodalVec, vecMapping, globalBuild->velocityVec, vecMapping, &vecScatter1);
+    VecScatterCreate(globalBuild->velocityVec, vecMapping, globalBuild->nodalVec, vecMapping, &vecScatter2);
 }
 
 Solver::~Solver(){
     KSPDestroy(&stp2Solver);
+    VecScatterDestroy(&vecScatter1);
+    VecScatterDestroy(&vecScatter2);
+    ISDestroy(&vecMapping);
     delete(globalBuild);
 }
 
@@ -61,7 +79,6 @@ void Solver::computeFirstStep(){
     Mat tempMat;
     Vec tempVec;
     PC preConditoner;
-
 
     VecCreate(PETSC_COMM_WORLD, &tempVec);
     VecSetSizes(tempVec, PETSC_DECIDE, msh->nNodes * 2);
@@ -122,30 +139,15 @@ void Solver::computeSecondStep(){
 
     MatMult(globalBuild->globalMassMat, globalBuild->velocityVec, tempVec);
     //VecView(tempVec, PETSC_VIEWER_STDOUT_WORLD);
-    
-    PetscInt gblIndices[msh->nNodes * 2];
-    for(int i = 0; i < msh->nNodes * 2; i++){
-        gblIndices[i] = i;
-    }
-    IS is;
-    VecScatter vs;
-    PetscReal max;
-    ISCreateGeneral(PETSC_COMM_WORLD, msh->nNodes * 2, gblIndices, PETSC_COPY_VALUES, &is);
-    VecScatterCreate(tempVec, is, solVec, is, &vs);
-    VecScatterBegin(vs, tempVec, solVec, INSERT_VALUES, SCATTER_FORWARD);
-    VecScatterEnd(vs, tempVec, solVec, INSERT_VALUES, SCATTER_FORWARD);
 
-    VecAssemblyBegin(solVec);
-    VecAssemblyEnd(solVec);
-    VecScatterDestroy(&vs);
-    ISDestroy(&is);
+    updateVectors(&tempVec, &solVec, false);
 
     applyDirichletConditions(&globalBuild->globalFullMat, &solVec, true);
     KSPSolve(stp2Solver, solVec, globalBuild->nodalVec);
     //MatView(globalBuild->globalConvMat, PETSC_VIEWER_STDOUT_WORLD);
 
     //applyDirichletConditions(&globalBuild->globalFullMat, &globalBuild->nodalVec, true);
-    globalBuild->updateVelocity();
+    updateVectors(&globalBuild->nodalVec, &globalBuild->velocityVec, true);
     VecDestroy(&solVec);
     VecDestroy(&tempVec);
 }
@@ -231,7 +233,6 @@ vector<vector<double>> Solver::interpolateSolution(double resolution, int rank){
             interpolateValues(coord, solData, nodeTags, &solVec);
         }
     }
-    //VecView(solVec, PETSC_VIEWER_STDOUT_WORLD);
     VecDestroy(&solVec);
     return solData;
 }

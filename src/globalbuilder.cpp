@@ -8,7 +8,6 @@ GlobalBuilder::GlobalBuilder(int dim, double dt, double visc, Mesh* msh){
 
     int rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_split(MPI_COMM_WORLD, rank, 0, &this->comm);
 
     MatCreate(PETSC_COMM_WORLD, &globalMassMat);
     MatSetSizes(globalMassMat, PETSC_DECIDE, PETSC_DECIDE, 
@@ -139,7 +138,7 @@ void GlobalBuilder::globalToLocalVec(size_t elementTag, Vec *localVec){
 }
 
 void GlobalBuilder::assembleMatrices(){
-    localBuild = new LocalBuilder(dt, viscosity, comm);
+    localBuild = new LocalBuilder(dt, viscosity);
     int rank, size;
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
@@ -182,11 +181,11 @@ void GlobalBuilder::assembleMatrices(){
 void GlobalBuilder::assembleConvectionMatrix(){
     MatZeroEntries(globalConvMat);
     Vec localVelVec;
-    VecCreate(comm, &localVelVec);
+    VecCreate(PETSC_COMM_SELF, &localVelVec);
     VecSetSizes(localVelVec, PETSC_DECIDE, 12);
     VecSetFromOptions(localVelVec);
 
-    localBuild = new LocalBuilder(comm);
+    localBuild = new LocalBuilder();
 
     int rank, size;
     MPI_Comm_size(MPI_COMM_WORLD, &size);
@@ -213,22 +212,4 @@ void GlobalBuilder::assembleConvectionMatrix(){
 void GlobalBuilder::assembleVectors(){
     localToGlobalVec(false);
     localToGlobalVec(true);
-}
-
-void GlobalBuilder::updateVelocity(){
-    PetscInt gblIndices[msh->nNodes * 2];
-    for(int i = 0; i < msh->nNodes * 2; i++){
-        gblIndices[i] = i;
-    }
-    IS is;
-    VecScatter vs;
-    PetscReal max;
-    ISCreateGeneral(PETSC_COMM_WORLD, msh->nNodes * 2, gblIndices, PETSC_COPY_VALUES, &is);
-    VecScatterCreate(nodalVec, is, velocityVec, is, &vs);
-    VecScatterBegin(vs, nodalVec, velocityVec, INSERT_VALUES, SCATTER_FORWARD);
-    VecScatterEnd(vs, nodalVec, velocityVec, INSERT_VALUES, SCATTER_FORWARD);
-    VecAssemblyBegin(velocityVec);
-    VecAssemblyEnd(velocityVec);
-    VecMax(velocityVec, NULL, &max);
-    cout << "MAX (instability metric): " << max << "\n";
 }

@@ -19,17 +19,17 @@ void LocalBuilder::setUp(){
     int nOrientations;
 
     for(int m = 0; m < 6; m++){
-        MatCreate(comm, &inverseJacobian[m]);
+        MatCreate(PETSC_COMM_SELF, &inverseJacobian[m]);
         MatSetSizes(inverseJacobian[m], PETSC_DECIDE, PETSC_DECIDE, 2, 2);
         MatSetFromOptions(inverseJacobian[m]);
         MatSetUp(inverseJacobian[m]);
 
-        MatCreate(comm, &basisGradMats[m]);
+        MatCreate(PETSC_COMM_SELF, &basisGradMats[m]);
         MatSetSizes(basisGradMats[m], PETSC_DECIDE, PETSC_DECIDE, 2, 12);
         MatSetFromOptions(basisGradMats[m]);
         MatSetUp(basisGradMats[m]);
 
-        MatCreate(comm, &basisMats[m]);
+        MatCreate(PETSC_COMM_SELF, &basisMats[m]);
         MatSetSizes(basisMats[m], PETSC_DECIDE, PETSC_DECIDE, 12, 2);
         MatSetFromOptions(basisMats[m]);
         MatSetUp(basisMats[m]);
@@ -44,35 +44,34 @@ void LocalBuilder::setUp(){
     buildBasisMatrix();
 }
 
-LocalBuilder::LocalBuilder(MPI_Comm comm){
+LocalBuilder::LocalBuilder(){
     this->conv = true;
-    this->comm = comm;
     setUp();
-    MatCreate(comm, &localConvMat);
+    MatCreate(PETSC_COMM_SELF, &localConvMat);
     MatSetSizes(localConvMat, PETSC_DECIDE, PETSC_DECIDE, 12, 12);
     MatSetFromOptions(localConvMat);
     MatSetUp(localConvMat);
 }
 
-LocalBuilder::LocalBuilder(double dt, double viscosity, MPI_Comm comm){
+LocalBuilder::LocalBuilder(double dt, double viscosity){
     this->dt = dt;
     this->viscosity = viscosity;
     this->conv = false;
-    this->comm = comm;
+
     setUp();
-    MatCreate(comm, &localMassMat);
+    MatCreate(PETSC_COMM_SELF, &localMassMat);
     MatSetSizes(localMassMat, PETSC_DECIDE, PETSC_DECIDE, 12, 12);
     MatSetFromOptions(localMassMat);
     MatSetUp(localMassMat);
     MatDuplicate(localMassMat, MAT_DO_NOT_COPY_VALUES, &localViscMat);
 
-    MatCreate(comm, &localGradMat);
+    MatCreate(PETSC_COMM_SELF, &localGradMat);
     MatSetSizes(localGradMat, PETSC_DECIDE, PETSC_DECIDE, 12, 3);
     MatSetFromOptions(localGradMat);
     MatSetUp(localGradMat);
 
-    MatCreate(comm, &localFullMat);
-    MatCreate(comm, &localFullMat);
+    MatCreate(PETSC_COMM_SELF, &localFullMat);
+    MatCreate(PETSC_COMM_SELF, &localFullMat);
     MatSetSizes(localFullMat, PETSC_DECIDE, PETSC_DECIDE, 15, 15);
     MatSetFromOptions(localFullMat);
     MatSetUp(localFullMat);
@@ -137,7 +136,7 @@ void LocalBuilder::buildBasisGradMatrix(){
     //Compute matrix for each integration point
     for(int point = 0; point < basisFuncsGrad.size(); point+=18){
         Mat temp;
-        MatCreate(comm, &temp);
+        MatCreate(PETSC_COMM_SELF, &temp);
         MatSetSizes(temp, PETSC_DECIDE, PETSC_DECIDE, 2, 12);
         MatSetFromOptions(temp);
         MatSetUp(temp);
