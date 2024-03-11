@@ -12,7 +12,8 @@ class SolverTest : public testing::Test {
         }
 
         void SetUp() override {
-            msh = new Mesh("geometry/example.geo", 4, 1);
+            Mesh::generateMesh("geometry/example.geo", 4);
+            msh = new Mesh("geometry/example.msh", 1);
             solver = new Solver(msh, 0.0001, 0.1);
         }
 
@@ -32,13 +33,13 @@ class SolverTest : public testing::Test {
 
 TEST_F(SolverTest, SolverDataSize) {
     solver->computeTimeStep(2);
-    vector<vector<double>> sol = solver->interpolateSolution(0.1);
+    vector<vector<double>> sol = solver->interpolateSolution(0.1, 0);
     ASSERT_EQ(sol.size(), 5);
 }
 
 TEST_F(SolverTest, SolverBoundaryVelX) {
    solver->computeTimeStep(2);
-   vector<vector<double>> sol = solver->interpolateSolution(0.01);
+   vector<vector<double>> sol = solver->interpolateSolution(0.01, 0);
    int avg = 0;
    for(double vel : sol[1])
        avg+=vel;
@@ -48,7 +49,7 @@ TEST_F(SolverTest, SolverBoundaryVelX) {
 
 TEST_F(SolverTest, SolverBoundaryVelY) {
     solver->computeTimeStep(2);
-    vector<vector<double>> sol = solver->interpolateSolution(0.01);
+    vector<vector<double>> sol = solver->interpolateSolution(0.01, 0);
     int avg = 0;
     for(double vel : sol[2])
         avg+=vel;

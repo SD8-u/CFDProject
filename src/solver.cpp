@@ -1,5 +1,13 @@
 #include "solver.hpp"
 
+void Solver::updateVectors(Vec *vec1, Vec *vec2, bool vel){
+    VecScatter *vecScatter = vel ? &vecScatter1 : &vecScatter2;
+    VecScatterBegin(*vecScatter, *vec1, *vec2, INSERT_VALUES, SCATTER_FORWARD);
+    VecScatterEnd(*vecScatter, *vec1, *vec2, INSERT_VALUES, SCATTER_FORWARD);
+    VecAssemblyBegin(*vec2);
+    VecAssemblyEnd(*vec2);
+}
+
 Solver::Solver(Mesh* msh, double dt, double viscosity){
     Vec tempVec;
     this->msh = msh;
@@ -19,34 +27,51 @@ Solver::Solver(Mesh* msh, double dt, double viscosity){
     KSPCreate(PETSC_COMM_WORLD, &stp2Solver);
     KSPSetType(stp2Solver, KSPGMRES);
     KSPSetOperators(stp2Solver, globalBuild->globalFullMat, globalBuild->globalFullMat);
-    //KSPGetPC(stp2Solver, &preConditioner);
-    //PCSetType(preConditioner, PCICC);
+    //KSPSetInitialGuessNonzero(stp2Solver, PETSC_TRUE);
+    KSPGetPC(stp2Solver, &preConditioner);
+    PCSetType(preConditioner, PCASM);
     KSPSetFromOptions(stp2Solver);
+
+    PetscInt vecIndices[msh->nNodes * 2];
+    for(int i = 0; i < msh->nNodes * 2; i++) vecIndices[i] = i;
+
+    ISCreateGeneral(PETSC_COMM_WORLD, msh->nNodes * 2, vecIndices, PETSC_COPY_VALUES, &vecMapping);
+    VecScatterCreate(globalBuild->nodalVec, vecMapping, globalBuild->velocityVec, vecMapping, &vecScatter1);
+    VecScatterCreate(globalBuild->velocityVec, vecMapping, globalBuild->nodalVec, vecMapping, &vecScatter2);
 }
 
 Solver::~Solver(){
     KSPDestroy(&stp2Solver);
+    VecScatterDestroy(&vecScatter1);
+    VecScatterDestroy(&vecScatter2);
+    ISDestroy(&vecMapping);
     delete(globalBuild);
 }
 
 void Solver::applyDirichletConditions(Mat *m, Vec *v, bool expl){
     PetscInt* rows = msh->dirichletIds.data();
-
+    int high, low;
+    VecGetOwnershipRange(*v, &low, &high);
     for(int i = 0; i < msh->nNodes; i++){
         Node n = msh->nodes[msh->nodeIds[i]];
         if(n.boundary || n.inlet) {
-            VecSetValue(*v, i, n.velocity[0], INSERT_VALUES);
-            VecSetValue(*v, i + msh->nNodes, n.velocity[1], INSERT_VALUES);
+            if(i >= low && i < high){
+                VecSetValue(*v, i, n.velocity[0], INSERT_VALUES);
+            }
+            if(i + msh->nNodes >= low && i + msh->nNodes < high) {
+                VecSetValue(*v, i + msh->nNodes, n.velocity[1], INSERT_VALUES);
+            }
         }
     }
+
+    VecAssemblyBegin(*v);
+    VecAssemblyEnd(*v);
 
     if(!expl){
         MatZeroRows(*m, msh->dirichletIds.size(), rows, 1.0, *v, *v);
     }
     MatAssemblyBegin(*m, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(*m, MAT_FINAL_ASSEMBLY);
-    VecAssemblyBegin(*v);
-    VecAssemblyEnd(*v);
 }
 
 void Solver::computeFirstStep(){
@@ -55,20 +80,12 @@ void Solver::computeFirstStep(){
     Vec tempVec;
     PC preConditoner;
 
-    MatCreate(PETSC_COMM_WORLD, &tempMat);
-    MatSetSizes(tempMat, PETSC_DECIDE, PETSC_DECIDE, 
-    msh->nNodes * 2, msh->nNodes * 2);
-    MatSetFromOptions(tempMat);
-    MatSetUp(tempMat);
-
     VecCreate(PETSC_COMM_WORLD, &tempVec);
     VecSetSizes(tempVec, PETSC_DECIDE, msh->nNodes * 2);
     VecSetFromOptions(tempVec);
 
     globalBuild->assembleConvectionMatrix();
     MatConvert(globalBuild->globalMassMat, MATSAME, MAT_INITIAL_MATRIX, &tempMat);
-    MatAssemblyBegin(tempMat, MAT_FINAL_ASSEMBLY);
-    MatAssemblyEnd(tempMat, MAT_FINAL_ASSEMBLY);
 
     //Subtract half viscous + convection terms from right hand side
     MatAXPY(tempMat, -1/2, globalBuild->globalViscMat, DIFFERENT_NONZERO_PATTERN);
@@ -87,9 +104,11 @@ void Solver::computeFirstStep(){
     KSPCreate(PETSC_COMM_WORLD, &stp1Solver);
     KSPSetType(stp1Solver, KSPGMRES);
     KSPSetOperators(stp1Solver, tempMat, tempMat);
-    //KSPGetPC(stp1Solver, &preConditoner);
-    //PCSetType(preConditoner, PCICC);
+
+    KSPGetPC(stp1Solver, &preConditoner);
+    PCSetType(preConditoner, PCASM);
     KSPSetFromOptions(stp1Solver);
+
     KSPSolve(stp1Solver, tempVec, globalBuild->velocityVec);
 
     //applyDirichletConditions(&tempMat, &globalBuild->velocityVec, true);
@@ -117,26 +136,18 @@ void Solver::computeSecondStep(){
     //MatAXPY(tempMat, -1.0, globalBuild->globalViscMat, DIFFERENT_NONZERO_PATTERN);
     //MatMult(tempMat, globalBuild->velocityVec, tempVec);
     //MatDestroy(&tempMat);
-    
-    MatMult(globalBuild->globalMassMat, globalBuild->velocityVec, tempVec);
-    VecZeroEntries(solVec);
 
-    for(int i = 0; i < msh->nNodes * 2; i++){
-        PetscInt ind = i;
-        PetscScalar val;
-        VecGetValues(tempVec, 1, &ind, &val);
-        VecSetValue(solVec, i, val, INSERT_VALUES);
-    }
-    VecAssemblyBegin(solVec);
-    VecAssemblyEnd(solVec);
+    MatMult(globalBuild->globalMassMat, globalBuild->velocityVec, tempVec);
+    //VecView(tempVec, PETSC_VIEWER_STDOUT_WORLD);
+
+    updateVectors(&tempVec, &solVec, false);
 
     applyDirichletConditions(&globalBuild->globalFullMat, &solVec, true);
-    VecZeroEntries(globalBuild->nodalVec);
     KSPSolve(stp2Solver, solVec, globalBuild->nodalVec);
+    //MatView(globalBuild->globalConvMat, PETSC_VIEWER_STDOUT_WORLD);
 
     //applyDirichletConditions(&globalBuild->globalFullMat, &globalBuild->nodalVec, true);
-    globalBuild->updateVelocity();
-
+    updateVectors(&globalBuild->nodalVec, &globalBuild->velocityVec, true);
     VecDestroy(&solVec);
     VecDestroy(&tempVec);
 }
@@ -150,7 +161,7 @@ void Solver::computeTimeStep(int steps){
 }
 
 void Solver::interpolateValues(vector<double> &coord, 
-vector<vector<double>> &solData, vector<size_t> &nodeTags){
+vector<vector<double>> &solData, vector<size_t> &nodeTags, Vec *solVec){
     int nComp, nOrien;
     double pressure = 0, xv = 0, yv = 0;
     double nodePre, nodeVx, nodeVy;
@@ -165,9 +176,9 @@ vector<vector<double>> &solData, vector<size_t> &nodeTags){
         PetscInt pi = msh->nodes[nodeTags[node]].pid + msh->nNodes * 2;
         PetscInt vxi = msh->nodes[nodeTags[node]].id;
         PetscInt vyi = vxi + msh->nNodes;
-        VecGetValues(globalBuild->nodalVec, 1, &vxi, &nodeVx);
-        VecGetValues(globalBuild->nodalVec, 1, &vyi, &nodeVy);
-        VecGetValues(globalBuild->nodalVec, 1, &pi, &nodePre);
+        VecGetValues(*solVec, 1, &vxi, &nodeVx);
+        VecGetValues(*solVec, 1, &vyi, &nodeVy);
+        VecGetValues(*solVec, 1, &pi, &nodePre);
         if(node < 3){
             pressure += basisFuncsPre[node] * nodePre;
         }
@@ -181,7 +192,20 @@ vector<vector<double>> &solData, vector<size_t> &nodeTags){
     coord.clear();
 }
 
-vector<vector<double>> Solver::interpolateSolution(double resolution){
+vector<vector<double>> Solver::interpolateSolution(double resolution, int rank){
+    Vec solVec;
+    VecScatter vs;
+    vector<vector<double>> solData = vector<vector<double>>(5);
+
+    VecScatterCreateToZero(globalBuild->nodalVec, &vs, &solVec);
+    VecScatterBegin(vs, globalBuild->nodalVec, solVec, INSERT_VALUES, SCATTER_FORWARD);
+    VecScatterEnd(vs, globalBuild->nodalVec, solVec, INSERT_VALUES, SCATTER_FORWARD);
+
+    if(rank != 0){
+        VecDestroy(&solVec);
+        return solData;
+    }
+
     size_t elementTag;
     int elementType;
     vector<size_t> nodeTags;
@@ -189,7 +213,6 @@ vector<vector<double>> Solver::interpolateSolution(double resolution){
     double xmax, ymax, zmax;
     double xmin, ymin, zmin;
     vector<double> coord;
-    vector<vector<double>> solData = vector<vector<double>>(5);
 
     gmsh::model::getBoundingBox(-1, -1, xmin, ymin, zmin, xmax, ymax, zmax);
     for(double x = xmin; x < xmax; x+=resolution){
@@ -207,8 +230,9 @@ vector<vector<double>> Solver::interpolateSolution(double resolution){
 
             coord.push_back(u); coord.push_back(v); coord.push_back(w);
 
-            interpolateValues(coord, solData, nodeTags);
+            interpolateValues(coord, solData, nodeTags, &solVec);
         }
     }
+    VecDestroy(&solVec);
     return solData;
 }

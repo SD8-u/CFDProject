@@ -19,17 +19,17 @@ void LocalBuilder::setUp(){
     int nOrientations;
 
     for(int m = 0; m < 6; m++){
-        MatCreate(PETSC_COMM_WORLD, &inverseJacobian[m]);
+        MatCreate(PETSC_COMM_SELF, &inverseJacobian[m]);
         MatSetSizes(inverseJacobian[m], PETSC_DECIDE, PETSC_DECIDE, 2, 2);
         MatSetFromOptions(inverseJacobian[m]);
         MatSetUp(inverseJacobian[m]);
 
-        MatCreate(PETSC_COMM_WORLD, &basisGradMats[m]);
+        MatCreate(PETSC_COMM_SELF, &basisGradMats[m]);
         MatSetSizes(basisGradMats[m], PETSC_DECIDE, PETSC_DECIDE, 2, 12);
         MatSetFromOptions(basisGradMats[m]);
         MatSetUp(basisGradMats[m]);
 
-        MatCreate(PETSC_COMM_WORLD, &basisMats[m]);
+        MatCreate(PETSC_COMM_SELF, &basisMats[m]);
         MatSetSizes(basisMats[m], PETSC_DECIDE, PETSC_DECIDE, 12, 2);
         MatSetFromOptions(basisMats[m]);
         MatSetUp(basisMats[m]);
@@ -47,7 +47,7 @@ void LocalBuilder::setUp(){
 LocalBuilder::LocalBuilder(){
     this->conv = true;
     setUp();
-    MatCreate(PETSC_COMM_WORLD, &localConvMat);
+    MatCreate(PETSC_COMM_SELF, &localConvMat);
     MatSetSizes(localConvMat, PETSC_DECIDE, PETSC_DECIDE, 12, 12);
     MatSetFromOptions(localConvMat);
     MatSetUp(localConvMat);
@@ -57,20 +57,21 @@ LocalBuilder::LocalBuilder(double dt, double viscosity){
     this->dt = dt;
     this->viscosity = viscosity;
     this->conv = false;
+
     setUp();
-    MatCreate(PETSC_COMM_WORLD, &localMassMat);
+    MatCreate(PETSC_COMM_SELF, &localMassMat);
     MatSetSizes(localMassMat, PETSC_DECIDE, PETSC_DECIDE, 12, 12);
     MatSetFromOptions(localMassMat);
     MatSetUp(localMassMat);
     MatDuplicate(localMassMat, MAT_DO_NOT_COPY_VALUES, &localViscMat);
 
-    MatCreate(PETSC_COMM_WORLD, &localGradMat);
+    MatCreate(PETSC_COMM_SELF, &localGradMat);
     MatSetSizes(localGradMat, PETSC_DECIDE, PETSC_DECIDE, 12, 3);
     MatSetFromOptions(localGradMat);
     MatSetUp(localGradMat);
 
-    MatCreate(PETSC_COMM_WORLD, &localFullMat);
-    MatCreate(PETSC_COMM_WORLD, &localFullMat);
+    MatCreate(PETSC_COMM_SELF, &localFullMat);
+    MatCreate(PETSC_COMM_SELF, &localFullMat);
     MatSetSizes(localFullMat, PETSC_DECIDE, PETSC_DECIDE, 15, 15);
     MatSetFromOptions(localFullMat);
     MatSetUp(localFullMat);
@@ -131,12 +132,11 @@ void LocalBuilder::buildInverseJacobian(){
 
 //Compute basis function gradient matrix w.r.t spatial coordinates
 void LocalBuilder::buildBasisGradMatrix(){
-
     int m = 0;
     //Compute matrix for each integration point
     for(int point = 0; point < basisFuncsGrad.size(); point+=18){
         Mat temp;
-        MatCreate(PETSC_COMM_WORLD, &temp);
+        MatCreate(PETSC_COMM_SELF, &temp);
         MatSetSizes(temp, PETSC_DECIDE, PETSC_DECIDE, 2, 12);
         MatSetFromOptions(temp);
         MatSetUp(temp);
@@ -236,7 +236,6 @@ void LocalBuilder::computeConvectionMatrix(size_t elementTag, Vec *velocityVec){
     buildInverseJacobian();
     MatZeroEntries(localConvMat);
     buildBasisGradMatrix();
-
     PetscScalar v[12] = {0};
     for(int a = 0; a < 12; a++){
         VecGetValues(*velocityVec, 1, &a, &v[a]);
@@ -248,10 +247,11 @@ void LocalBuilder::computeConvectionMatrix(size_t elementTag, Vec *velocityVec){
             int w = 0;
             //Approximate integration using gauss points
             for(int gp = 0; gp < 36; gp+=6){
-                PetscScalar basisVal, gradX, gradY;
-                MatGetValue(basisMats[w], i % 6, 0, &basisVal);
-                MatGetValue(basisGradMats[w], 0, j, &gradX);
-                MatGetValue(basisGradMats[w], 1, j, &gradY);
+                PetscScalar basisVali, basisValj, gradXi, gradYi, gradXj, gradYj;
+                MatGetValue(basisMats[w], i % 6, 0, &basisVali);
+                MatGetValue(basisMats[w], j % 6, 0, &basisValj);
+                MatGetValue(basisGradMats[w], 0, i, &gradXi); MatGetValue(basisGradMats[w], 1, i, &gradYi);
+                MatGetValue(basisGradMats[w], 0, j, &gradXj); MatGetValue(basisGradMats[w], 1, j, &gradYj);
 
                 double velU = 0, velV = 0;
                 velU = v[0] * basisFuncs[gp] + v[1] * basisFuncs[gp + 1] + 
@@ -264,7 +264,8 @@ void LocalBuilder::computeConvectionMatrix(size_t elementTag, Vec *velocityVec){
                 v[10] * basisFuncs[gp + 4] + v[11] * basisFuncs[gp + 5];
                 
                 PetscScalar matVal;
-                matVal = basisVal * (velU * gradX + velV * gradY);
+                matVal = basisValj * (velU * gradXi + velV * gradYi) * 0.5 +
+                         basisVali * (velU * gradXj + velV * gradYj);
                 convVal += (matVal * gaussWeights[w] * jdets[w++]);
             }
             
@@ -278,7 +279,6 @@ void LocalBuilder::computeConvectionMatrix(size_t elementTag, Vec *velocityVec){
 
 void LocalBuilder::computeGradientMatrix(){
     MatZeroEntries(localGradMat);
-
     for(int i = 0; i < 3; i++){
         for(int j = 0; j < 12; j++){
             int w = 0;
@@ -300,7 +300,6 @@ void LocalBuilder::computeGradientMatrix(){
 void LocalBuilder::computeFinalMatrix(){
     MatZeroEntries(localFullMat);
     MatScale(localMassMat, dt);
-    //MatScale(localViscMat, viscosity);
     Mat localGradTMat;
 
     MatTranspose(localGradMat, MAT_INITIAL_MATRIX, &localGradTMat);
@@ -342,7 +341,6 @@ void LocalBuilder::computeFinalMatrix(){
 
     MatDestroy(&localGradTMat);
     MatScale(localMassMat, 1/dt);
-    //MatScale(localViscMat, 1/viscosity);
 }
 
 void LocalBuilder::assembleMatrices(size_t elementTag){

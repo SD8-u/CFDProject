@@ -6,6 +6,9 @@ GlobalBuilder::GlobalBuilder(int dim, double dt, double visc, Mesh* msh){
     this->viscosity = visc;
     this->msh = msh;
 
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
     MatCreate(PETSC_COMM_WORLD, &globalMassMat);
     MatSetSizes(globalMassMat, PETSC_DECIDE, PETSC_DECIDE, 
     msh->nNodes * 2, msh->nNodes * 2);
@@ -65,14 +68,9 @@ void GlobalBuilder::localToGlobalMat(size_t elementTag, Mat *localMat, Mat *glob
                     y = msh->nodes[msh->elements[elementTag][j % 6]].pid;
                     y += msh->nNodes * 2;
                 }
-
                 PetscScalar matVal;
                 MatGetValue(*localMat, i, j, &matVal);
-                
-                #pragma omp critical
-                {
-                    MatSetValue(*globalMat, x, y, matVal, ADD_VALUES);
-                }
+                MatSetValue(*globalMat, x, y, matVal, ADD_VALUES);
             }
         }
 }
@@ -82,21 +80,33 @@ void GlobalBuilder::localToGlobalVec(bool full){
     if(full){
         vec = &nodalVec;
     }
+    int high, low;
+    VecGetOwnershipRange(*vec, &low, &high);
     for(size_t elementTag : msh->elementTags[0]){
         for(int i = 0; i < 6; i++){
             Node n = msh->nodes[msh->elements[elementTag][i]];
             int x = n.id;
             int y = n.pid;
             if(n.inlet){
-                VecSetValue(*vec, x, n.velocity[0], INSERT_VALUES);
-                VecSetValue(*vec, x + msh->nNodes, n.velocity[1], INSERT_VALUES);
+                if(x >= low && x < high) {
+                    VecSetValue(*vec, x, n.velocity[0], INSERT_VALUES);
+                }
+                if(x + msh->nNodes >= low && x + msh->nNodes < high) {
+                    VecSetValue(*vec, x + msh->nNodes, n.velocity[1], INSERT_VALUES);
+                }
             }
             else{
-                VecSetValue(*vec, x, 0.0, INSERT_VALUES);
-                VecSetValue(*vec, x + msh->nNodes, 0.0, INSERT_VALUES);
+                if(x >= low && x < high){
+                    VecSetValue(*vec, x, 0.0, INSERT_VALUES);
+                }
+                if(x + msh->nNodes >= low && x + msh->nNodes < high) {
+                    VecSetValue(*vec, x + msh->nNodes, 0.0, INSERT_VALUES);
+                }
             }
             if(i < 3 && full){
-                VecSetValue(*vec, 2 * msh->nNodes + y, n.pressure, INSERT_VALUES);
+                if(y + 2 * msh->nNodes >= low && y + 2 * msh->nNodes < high) {
+                    VecSetValue(*vec, 2 * msh->nNodes + y, n.pressure, INSERT_VALUES);
+                }
             }
         }
     }
@@ -105,24 +115,48 @@ void GlobalBuilder::localToGlobalVec(bool full){
 }
 
 void GlobalBuilder::globalToLocalVec(size_t elementTag, Vec *localVec){
+    PetscInt gblIndices[12];
+
     for(int node = 0; node < 6; node++){
         PetscInt ix = msh->nodes[msh->elements[elementTag][node]].id;
         PetscInt iy = ix + msh->nNodes;
         PetscScalar vx, vy;
-        VecGetValues(velocityVec, 1, &ix, &vx);
-        VecGetValues(velocityVec, 1, &iy, &vy);
-        VecSetValue(*localVec, node, vx, INSERT_VALUES);
-        VecSetValue(*localVec, node + 6, vy, INSERT_VALUES);
+        gblIndices[node] = ix;
+        gblIndices[node + 6] = iy;
     }
+    IS is;
+    VecScatter vs;
+    ISCreateGeneral(PETSC_COMM_WORLD, 12, gblIndices, PETSC_COPY_VALUES, &is);
+    VecScatterCreate(velocityVec, is, *localVec, NULL, &vs);
+    VecScatterBegin(vs, velocityVec, *localVec, INSERT_VALUES, SCATTER_FORWARD);
+    VecScatterEnd(vs, velocityVec, *localVec, INSERT_VALUES, SCATTER_FORWARD);
+
+    VecScatterDestroy(&vs);
+    ISDestroy(&is);
     VecAssemblyBegin(*localVec);
     VecAssemblyEnd(*localVec);
 }
 
 void GlobalBuilder::assembleMatrices(){
     localBuild = new LocalBuilder(dt, viscosity);
-    for(size_t elementTag : msh->elementTags[0]){
+    int rank, size;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-        int o = omp_get_thread_num();
+    int domainSize = (msh->elementTags[0].size()/size);
+    int domainStart = rank * domainSize;
+    int domainEnd = domainStart + domainSize + 
+    (msh->elementTags[0].size()%size) * (rank == size-1);
+
+    cout << "Size: "<< size << "\n";
+    cout << "Rank: "<< rank << "\n";
+    cout << "domain size: " << domainSize << "\n";
+    cout << "domain start: " << domainStart << "\n";
+    cout << "domain end: " << domainEnd << "\n";
+
+    for(int e = domainStart; e < domainEnd; e++){
+
+        size_t elementTag = msh->elementTags[0][e];
         localBuild->assembleMatrices(elementTag);
 
         localToGlobalMat(elementTag, &localBuild->localMassMat, &globalMassMat);
@@ -130,6 +164,7 @@ void GlobalBuilder::assembleMatrices(){
         localToGlobalMat(elementTag, &localBuild->localFullMat, &globalFullMat, true);
     }
     delete(localBuild);
+
     MatAssemblyBegin(globalMassMat, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(globalMassMat, MAT_FINAL_ASSEMBLY);
 
@@ -146,18 +181,28 @@ void GlobalBuilder::assembleMatrices(){
 void GlobalBuilder::assembleConvectionMatrix(){
     MatZeroEntries(globalConvMat);
     Vec localVelVec;
-    VecCreate(PETSC_COMM_WORLD, &localVelVec);
+    VecCreate(PETSC_COMM_SELF, &localVelVec);
     VecSetSizes(localVelVec, PETSC_DECIDE, 12);
     VecSetFromOptions(localVelVec);
 
     localBuild = new LocalBuilder();
 
-    for(size_t elementTag : msh->elementTags[0]){
+    int rank, size;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    int domainSize = (msh->elementTags[0].size()/size);
+    int domainStart = rank * domainSize;
+    int domainEnd = domainStart + domainSize + 
+    (msh->elementTags[0].size()%size) * (rank == size-1);
+
+    for(int e = domainStart; e < domainEnd; e++){
+        size_t elementTag = msh->elementTags[0][e];
+
         globalToLocalVec(elementTag, &localVelVec);
         localBuild->computeConvectionMatrix(elementTag, &localVelVec);
         localToGlobalMat(elementTag, &localBuild->localConvMat, &globalConvMat);
     }
-
     MatAssemblyBegin(globalConvMat, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(globalConvMat, MAT_FINAL_ASSEMBLY);
     delete(localBuild);
@@ -167,18 +212,4 @@ void GlobalBuilder::assembleConvectionMatrix(){
 void GlobalBuilder::assembleVectors(){
     localToGlobalVec(false);
     localToGlobalVec(true);
-}
-
-void GlobalBuilder::updateVelocity(){
-    PetscScalar max = 0;
-    for(int i = 0; i < msh->nNodes * 2; i++){
-        PetscInt ind = i;
-        PetscScalar val;
-        VecGetValues(nodalVec, 1, &ind, &val);
-        max = val > max ? val : max;
-        VecSetValue(velocityVec, i, val, INSERT_VALUES);
-    }
-    cout << "MAX (instability metric): " << max << "\n";
-    VecAssemblyBegin(velocityVec);
-    VecAssemblyEnd(velocityVec);
 }

@@ -10,7 +10,7 @@ def call_parallel_solver(refinement, timesteps, velocity, dt, viscosity):
         sys.executable,
         args = [os.path.dirname(os.path.abspath(__file__)) + '/solver.py', 
                 refinement, timesteps, velocity, dt, viscosity],
-        maxprocs=1
+        maxprocs=4
     )
 
     N = np.array(0, dtype='i')
