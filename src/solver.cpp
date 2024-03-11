@@ -88,8 +88,8 @@ void Solver::computeFirstStep(){
     KSPSetType(stp1Solver, KSPGMRES);
     KSPSetOperators(stp1Solver, tempMat, tempMat);
 
-    //KSPGetPC(stp1Solver, &preConditoner);
-    //PCSetType(preConditoner, PCICC);
+    KSPGetPC(stp1Solver, &preConditoner);
+    PCSetType(preConditoner, PCASM);
     KSPSetFromOptions(stp1Solver);
 
     KSPSolve(stp1Solver, tempVec, globalBuild->velocityVec);

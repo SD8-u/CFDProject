@@ -1,6 +1,4 @@
 #include "setup.hpp"
-#include <omp.h>
-#include <mpi.h>
 
 using namespace std;
 
