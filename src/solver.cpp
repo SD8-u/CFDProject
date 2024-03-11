@@ -200,6 +200,8 @@ vector<vector<double>> Solver::interpolateSolution(double resolution, int rank){
     VecScatterCreateToZero(globalBuild->nodalVec, &vs, &solVec);
     VecScatterBegin(vs, globalBuild->nodalVec, solVec, INSERT_VALUES, SCATTER_FORWARD);
     VecScatterEnd(vs, globalBuild->nodalVec, solVec, INSERT_VALUES, SCATTER_FORWARD);
+    VecAssemblyBegin(solVec);
+    VecAssemblyEnd(solVec);
 
     if(rank != 0){
         VecDestroy(&solVec);

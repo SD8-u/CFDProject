@@ -27,7 +27,7 @@ class OptionFrame(customtkinter.CTkFrame):
 
         #Define UI widgets in option menu
         self.title = customtkinter.CTkLabel(self, text='CFD Simulation', font=title_font)
-        self.button = customtkinter.CTkButton(self, text="compute solution", command=self.button_callbck)
+        self.button = customtkinter.CTkButton(self, text="Compute Solution", command=self.button_callbck)
         self.timestepsL = customtkinter.CTkLabel(self, text="Timesteps:")
         self.timesteps = customtkinter.CTkEntry(self, placeholder_text="Enter timesteps")
         self.viscosityL = customtkinter.CTkLabel(self, text="Viscosity:")
