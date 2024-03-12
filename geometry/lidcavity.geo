@@ -16,10 +16,10 @@ Line Loop(9) = {5, 6, 7, 8};
 Plane Surface(10) = {9};
 
 //Tag boundary
-Physical Line("Boundary") = {8, 5, 6};
+Physical Line("Boundary") = {6, 7, 8};
 
 //Tag inlet
-Physical Line("Inlet") = {7};
+Physical Line("Inlet") = {5};
 
 // Tag fluid domain inside of square
 Physical Surface("FluidDomain") = {10};

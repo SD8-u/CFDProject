@@ -14,7 +14,7 @@ void Mesh::generateMesh(string filePath, int refinement){
     //Construct quadratic triangle elements
     gmsh::model::mesh::setOrder(2);
     
-    gmsh::write("geometry/example.msh");
+    gmsh::write("geometry/temp.msh");
 }
 
 Mesh::Mesh(string filePath, double boundaryVel){

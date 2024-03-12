@@ -1,15 +1,17 @@
 import sys
 import os
 import customtkinter
+import textwrap
 import numpy as np
 from mpi4py import MPI
 from PIL import Image
+from customtkinter import filedialog
 
-def call_parallel_solver(refinement, timesteps, velocity, dt, viscosity):
+def call_parallel_solver(refinement, timesteps, velocity, dt, viscosity, filename):
     comm = MPI.COMM_SELF.Spawn(
         sys.executable,
         args = [os.path.dirname(os.path.abspath(__file__)) + '/solver.py', 
-                refinement, timesteps, velocity, dt, viscosity],
+                refinement, timesteps, velocity, dt, viscosity, filename],
         maxprocs=4
     )
 
@@ -24,6 +26,7 @@ class OptionFrame(customtkinter.CTkFrame):
         self.master = master
         self.image_update = image_update
         title_font = customtkinter.CTkFont(family="<family name>", weight='bold')
+        self.filepath = ""
 
         #Define UI widgets in option menu
         self.title = customtkinter.CTkLabel(self, text='CFD Simulation', font=title_font)
@@ -38,26 +41,42 @@ class OptionFrame(customtkinter.CTkFrame):
         self.dt = customtkinter.CTkEntry(self, placeholder_text="Enter dt")
         self.velocityL = customtkinter.CTkLabel(self, text="Velocity:")
         self.velocity = customtkinter.CTkEntry(self, placeholder_text="Enter velocity")
+        self.file = customtkinter.CTkButton(self, text="Choose Geometry", command=self.file_explorer)
+        self.filename = customtkinter.CTkLabel(self, text="File: ")
 
         #Position widgets in grid
         self.title.grid(row=0, column=0, padx=20, pady=5, sticky="w")
         self.button.grid(row=1, column=0, padx=20, pady=5, sticky="w")
-        self.timestepsL.grid(row=2, column=0, padx=20, pady=5, sticky="w")
-        self.timesteps.grid(row=3, column=0, padx=20, pady=0, sticky="w")
-        self.viscosityL.grid(row=4, column=0, padx=20, pady=5, sticky="w")
-        self.viscosity.grid(row=5, column=0, padx=20, pady=0, sticky="w")
-        self.refinementL.grid(row=6, column=0, padx=20, pady=5, sticky="w")
-        self.refinement.grid(row=7, column=0, padx=20, pady=0, sticky="w")
-        self.dtL.grid(row=8, column=0, padx=20, pady=5, sticky="w")
-        self.dt.grid(row=9, column=0, padx=20, pady=0, sticky="w")
-        self.velocityL.grid(row=10, column=0, padx=20, pady=5, sticky="w")
-        self.velocity.grid(row=11, column=0, padx=20, pady=0, sticky="w")
+        self.file.grid(row=2, column=0, padx=20, pady=5, sticky="w")
+        self.filename.grid(row=3, column=0, padx=20, pady=5, sticky="w")
+        self.timestepsL.grid(row=4, column=0, padx=20, pady=0, sticky="w")
+        self.timesteps.grid(row=5, column=0, padx=20, pady=0, sticky="w")
+        self.viscosityL.grid(row=6, column=0, padx=20, pady=5, sticky="w")
+        self.viscosity.grid(row=7, column=0, padx=20, pady=0, sticky="w")
+        self.refinementL.grid(row=8, column=0, padx=20, pady=5, sticky="w")
+        self.refinement.grid(row=9, column=0, padx=20, pady=0, sticky="w")
+        self.dtL.grid(row=10, column=0, padx=20, pady=5, sticky="w")
+        self.dt.grid(row=11, column=0, padx=20, pady=0, sticky="w")
+        self.velocityL.grid(row=12, column=0, padx=20, pady=5, sticky="w")
+        self.velocity.grid(row=13, column=0, padx=20, pady=5, sticky="w")
+
+        self.button.configure(state="disabled")
 
     #Execute simulation given parameters
     def button_callbck(self):
         call_parallel_solver(self.refinement.get(), self.timesteps.get(), 
-                           self.velocity.get(), self.dt.get(), self.viscosity.get())
+                           self.velocity.get(), self.dt.get(), self.viscosity.get(),
+                           self.filepath)
         self.image_update()
+    
+    def file_explorer(self):
+        filename = filedialog.askopenfilename(initialdir = os.getcwd() + "/geometry", 
+                                              title = "Select a Geometry File", filetypes = 
+                                              (("geo files", "*.geo*"), ("all files", "*.*")))
+        self.filepath = filename
+        filename = os.path.basename(filename)
+        self.filename.configure(text = '\n'.join(textwrap.wrap('File: "'+filename+'"', 25)))
+        self.button.configure(state="normal")
 
 class App(customtkinter.CTk):
     def __init__(self):

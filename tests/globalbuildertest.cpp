@@ -11,8 +11,8 @@ class GlobalBuilderTest : public testing::Test {
         }
 
         void SetUp() override {
-            Mesh::generateMesh("geometry/example.geo", 4);
-            msh = new Mesh("geometry/example.msh", 1);
+            Mesh::generateMesh("geometry/lidcavity.geo", 4);
+            msh = new Mesh("geometry/temp.msh", 1);
             build = new GlobalBuilder(2, 0.001, 0.1, msh);
         }
 

@@ -22,44 +22,44 @@ class MeshTest : public testing::Test {
 };
 
 TEST_F(MeshTest, MeshElementSize1) {
-    Mesh::generateMesh("geometry/example.geo", 1);
-    msh = new Mesh("geometry/example.msh", 1);
+    Mesh::generateMesh("geometry/lidcavity.geo", 1);
+    msh = new Mesh("geometry/temp.msh", 1);
     ASSERT_EQ(msh->elementSize, 16);
 }
 
 TEST_F(MeshTest, MeshElementSize2) {
-    Mesh::generateMesh("geometry/example.geo", 2);
-    msh = new Mesh("geometry/example.msh", 1);
+    Mesh::generateMesh("geometry/lidcavity.geo", 2);
+    msh = new Mesh("geometry/temp.msh", 1);
     ASSERT_EQ(msh->elementSize, 64);
 }
 
 TEST_F(MeshTest, MeshElementSize3) {
-    Mesh::generateMesh("geometry/example.geo", 3);
-    msh = new Mesh("geometry/example.msh", 1);
+    Mesh::generateMesh("geometry/lidcavity.geo", 3);
+    msh = new Mesh("geometry/temp.msh", 1);
     ASSERT_EQ(msh->elementSize, 256);
 }
 
 TEST_F(MeshTest, MeshElementSize4) {
-    Mesh::generateMesh("geometry/example.geo", 4);
-    msh = new Mesh("geometry/example.msh", 1);
+    Mesh::generateMesh("geometry/lidcavity.geo", 4);
+    msh = new Mesh("geometry/temp.msh", 1);
     ASSERT_EQ(msh->elementSize, 1024);
 }
 
 TEST_F(MeshTest, MeshElementSize5) {
-    Mesh::generateMesh("geometry/example.geo", 5);
-    msh = new Mesh("geometry/example.msh", 1);
+    Mesh::generateMesh("geometry/lidcavity.geo", 5);
+    msh = new Mesh("geometry/temp.msh", 1);
     ASSERT_EQ(msh->elementSize, 4096);
 }
 
 TEST_F(MeshTest, MeshElementSize6) {
-    Mesh::generateMesh("geometry/example.geo", 6);
-     msh = new Mesh("geometry/example.msh", 1);
+    Mesh::generateMesh("geometry/lidcavity.geo", 6);
+     msh = new Mesh("geometry/temp.msh", 1);
     ASSERT_EQ(msh->elementSize, 16384);
 }
 
 TEST_F(MeshTest, NodeTest) {
-    Mesh::generateMesh("geometry/example.geo", 4);
-    msh = new Mesh("geometry/example.msh", 1);
+    Mesh::generateMesh("geometry/lidcavity.geo", 4);
+    msh = new Mesh("geometry/temp.msh", 1);
     vector<double> coord;
     vector<double> paramCoord;
     for(int i = 0; i < msh->nNodes; i++){
@@ -70,8 +70,8 @@ TEST_F(MeshTest, NodeTest) {
 }
 
 TEST_F(MeshTest, ElementTest) {
-    Mesh::generateMesh("geometry/example.geo", 4);
-    msh = new Mesh("geometry/example.msh", 1);
+    Mesh::generateMesh("geometry/lidcavity.geo", 4);
+    msh = new Mesh("geometry/temp.msh", 1);
     for(int i = 0; i < msh->elements.size(); i++){
         vector<size_t> nodeTags;
         int elementType;

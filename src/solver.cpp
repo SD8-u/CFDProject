@@ -150,6 +150,10 @@ void Solver::computeSecondStep(){
     updateVectors(&globalBuild->nodalVec, &globalBuild->velocityVec, true);
     VecDestroy(&solVec);
     VecDestroy(&tempVec);
+    
+    PetscReal max;
+    VecMax(globalBuild->velocityVec, NULL, &max);
+    cout << "Max (Instability Metric): " << max << "\n";
 }
 
 void Solver::computeTimeStep(int steps){

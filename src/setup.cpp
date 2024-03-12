@@ -2,7 +2,7 @@
 
 using namespace std;
 
-pybind11::tuple computeFlow(int refinement, int steps, double vel, double dt, double visc){
+pybind11::tuple computeFlow(int refinement, int steps, double vel, double dt, double visc, string file){
 
    int size;
    MPI_Comm_size(MPI_COMM_WORLD, &size);
@@ -14,11 +14,11 @@ pybind11::tuple computeFlow(int refinement, int steps, double vel, double dt, do
    result[0] = NULL; result[1] = NULL; result[2] = NULL; result[3] = NULL; result[4] = NULL;
 
    if(rank == 0)
-      Mesh::generateMesh("geometry/example.geo", refinement);
+      Mesh::generateMesh(file, refinement);
 
    MPI_Barrier(MPI_COMM_WORLD);
 
-   Mesh *msh = new Mesh("geometry/example.msh", vel);
+   Mesh *msh = new Mesh("geometry/temp.msh", vel);
    Solver* solver = new Solver(msh, dt, visc);
    solver->computeTimeStep(steps);
 
@@ -73,11 +73,11 @@ void computeFlowC(int refinement, int steps, double vel, double dt, double visc)
    printf("Processor Rank %d out of %d\n", rank, size);
 
    if(rank == 0)
-      Mesh::generateMesh("geometry/example.geo", refinement);
+      Mesh::generateMesh("geometry/lidcavity.geo", refinement);
 
    MPI_Barrier(MPI_COMM_WORLD);
 
-   Mesh *msh = new Mesh("geometry/example.msh", vel);
+   Mesh *msh = new Mesh("geometry/temp.msh", vel);
    Solver* solver = new Solver(msh, dt, visc);
 
    solver->computeTimeStep(steps);
