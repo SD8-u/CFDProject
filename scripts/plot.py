@@ -2,13 +2,14 @@ import matplotlib.pyplot as plt
 from matplotlib.tri import Triangulation
 import numpy as np
 
-def generate_plot(x, y, u, v, p):
-    tri = Triangulation(x, y)
+def generate_plot(x, y, u, v, p): 
+    p = p.reshape(len(np.unique(x)), len(np.unique(y)))
+
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    contour_plot = ax.tricontourf(tri, p, cmap='plasma') 
+    contour_plot = ax.contourf(np.unique(x), np.unique(y), p.transpose(), 70, cmap='jet') 
     fig.colorbar(contour_plot, label='Pressure', ax=ax)
-    ax.quiver(x, y, u, v, color='black')
+    ax.quiver(x, y, u, v, color='white')
     ax.set_aspect('equal')
     plt.xlabel('X')
     plt.ylabel('Y')
@@ -17,14 +18,14 @@ def generate_plot(x, y, u, v, p):
     plt.close() 
 
     u = u.reshape(len(np.unique(x)), len(np.unique(y)))
-    v  = v.reshape(len(np.unique(x)), len(np.unique(y)))
+    v = v.reshape(len(np.unique(x)), len(np.unique(y)))
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    contour_plot = ax.tricontourf(tri, p, cmap='plasma')
+    contour_plot = ax.contourf(np.unique(x), np.unique(y), p.transpose(), 70, cmap='jet')
     fig.colorbar(contour_plot, label='Pressure')
     ax.streamplot(np.unique(x), np.unique(y), u.transpose(), 
-                    v.transpose(), density=2, linewidth=0.5, arrowsize=0.5, color='black')
+                    v.transpose(), density=2, linewidth=1.5, arrowsize=0.5, color='white')
     ax.set_aspect('equal')
     plt.xlabel('X')
     plt.ylabel('Y')
