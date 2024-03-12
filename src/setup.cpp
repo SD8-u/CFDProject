@@ -18,10 +18,11 @@ pybind11::tuple computeFlow(int refinement, int steps, double vel, double dt, do
 
    MPI_Barrier(MPI_COMM_WORLD);
 
+   double start = MPI_Wtime();
    Mesh *msh = new Mesh("geometry/temp.msh", vel);
    Solver* solver = new Solver(msh, dt, visc);
    solver->computeTimeStep(steps);
-
+   double stop = MPI_Wtime() - start;
    vector<vector<double>> solData = solver->interpolateSolution(0.02, rank);
 
    if(rank == 0){
@@ -41,7 +42,7 @@ pybind11::tuple computeFlow(int refinement, int steps, double vel, double dt, do
    delete(solver);
    delete(msh);
    gmsh::clear();
-
+   cout << "Time: " << stop << "\n";
    return result;
 }
 
@@ -77,15 +78,18 @@ void computeFlowC(int refinement, int steps, double vel, double dt, double visc)
 
    MPI_Barrier(MPI_COMM_WORLD);
 
+   double start = MPI_Wtime();
    Mesh *msh = new Mesh("geometry/temp.msh", vel);
    Solver* solver = new Solver(msh, dt, visc);
 
    solver->computeTimeStep(steps);
+   double stop = MPI_Wtime() - start;
    vector<vector<double>> solData = solver->interpolateSolution(0.02, rank);
 
    delete(solver);
    delete(msh);
 
+   cout << "Time: " << stop << "\n";
    gmsh::finalize();
    PetscFinalize();
 }

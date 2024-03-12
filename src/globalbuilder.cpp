@@ -7,7 +7,9 @@ GlobalBuilder::GlobalBuilder(int dim, double dt, double visc, Mesh* msh){
     this->msh = msh;
 
     int rank;
+    int size = 1;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
 
     MatCreate(PETSC_COMM_WORLD, &globalMassMat);
     MatSetSizes(globalMassMat, PETSC_DECIDE, PETSC_DECIDE, 
@@ -15,6 +17,7 @@ GlobalBuilder::GlobalBuilder(int dim, double dt, double visc, Mesh* msh){
     MatSetFromOptions(globalMassMat);
     MatSetUp(globalMassMat);
 
+    MatCreate(PETSC_COMM_WORLD, &globalFullMat);
     MatCreate(PETSC_COMM_WORLD, &globalFullMat);
     MatSetSizes(globalFullMat, PETSC_DECIDE, PETSC_DECIDE, 
     msh->nNodes * 2 + msh->nLinear, msh->nNodes * 2 + msh->nLinear);

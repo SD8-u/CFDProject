@@ -31,4 +31,4 @@ jobs:
           cmake -DBUILD_MODULE=OFF -DBUILD_TESTS=ON ..
           cmake --build .
           cd ..
-          ./build/runTests -fopenmp
+          mpirun -n 1 build/runTests

@@ -1,9 +1,9 @@
 #!/bin/bash
-#Automate compilation steps for bloodflow module
+#Automate compilation steps for flow module
 cd build/
 cmake ..
 cmake --build .
 cd ../scripts
 pip install .
 cd ..
-./build/runTests
+mpirun -n 1 build/runTests
