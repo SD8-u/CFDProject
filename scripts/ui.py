@@ -2,7 +2,6 @@ import sys
 import os
 import customtkinter
 import textwrap
-import numpy as np
 from mpi4py import MPI
 from PIL import Image
 from customtkinter import filedialog
@@ -15,8 +14,7 @@ def call_parallel_solver(refinement, timesteps, velocity, dt, viscosity, filenam
         maxprocs=4
     )
 
-    N = np.array(0, dtype='i')
-    comm.Reduce(None, [N, MPI.INT], op=MPI.SUM, root=MPI.ROOT)
+    comm.barrier()
 
 customtkinter.set_default_color_theme("dark-blue")
 

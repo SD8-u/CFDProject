@@ -51,31 +51,31 @@ GlobalBuilder::~GlobalBuilder(){
 }
 
 void GlobalBuilder::localToGlobalMat(size_t elementTag, Mat *localMat, Mat *globalMat, bool final=false){
-        int add = final ? 3 : 0;
-        for(int i = 0; i < 12 + add; i++){
-            int x, y;
-            x = msh->nodes[msh->elements[elementTag][i % 6]].id;
-            if(i > 5){
-                x += msh->nNodes;
-            }
-            if(i > 11){
-                x = msh->nodes[msh->elements[elementTag][i % 6]].pid;
-                x += msh->nNodes * 2;
-            }
-            for(int j = 0; j < 12 + add; j++){
-                y = msh->nodes[msh->elements[elementTag][j % 6]].id;
-                if(j > 5){
-                    y += msh->nNodes;
-                }
-                if(j > 11){
-                    y = msh->nodes[msh->elements[elementTag][j % 6]].pid;
-                    y += msh->nNodes * 2;
-                }
-                PetscScalar matVal;
-                MatGetValue(*localMat, i, j, &matVal);
-                MatSetValue(*globalMat, x, y, matVal, ADD_VALUES);
-            }
+    int add = final ? 3 : 0;
+    for(int i = 0; i < 12 + add; i++){
+        int x, y;
+        x = msh->nodes[msh->elements[elementTag][i % 6]].id;
+        if(i > 5){
+            x += msh->nNodes;
         }
+        if(i > 11){
+            x = msh->nodes[msh->elements[elementTag][i % 6]].pid;
+            x += msh->nNodes * 2;
+        }
+        for(int j = 0; j < 12 + add; j++){
+            y = msh->nodes[msh->elements[elementTag][j % 6]].id;
+            if(j > 5){
+                y += msh->nNodes;
+            }
+            if(j > 11){
+                y = msh->nodes[msh->elements[elementTag][j % 6]].pid;
+                y += msh->nNodes * 2;
+            }
+            PetscScalar matVal;
+            MatGetValue(*localMat, i, j, &matVal);
+            MatSetValue(*globalMat, x, y, matVal, ADD_VALUES);
+        }
+    }
 }
 
 void GlobalBuilder::localToGlobalVec(bool full){
@@ -119,7 +119,6 @@ void GlobalBuilder::localToGlobalVec(bool full){
 
 void GlobalBuilder::globalToLocalVec(size_t elementTag, Vec *localVec){
     PetscInt gblIndices[12];
-
     for(int node = 0; node < 6; node++){
         PetscInt ix = msh->nodes[msh->elements[elementTag][node]].id;
         PetscInt iy = ix + msh->nNodes;
@@ -161,7 +160,6 @@ void GlobalBuilder::assembleMatrices(){
 
         size_t elementTag = msh->elementTags[0][e];
         localBuild->assembleMatrices(elementTag);
-
         localToGlobalMat(elementTag, &localBuild->localMassMat, &globalMassMat);
         localToGlobalMat(elementTag, &localBuild->localViscMat, &globalViscMat);
         localToGlobalMat(elementTag, &localBuild->localFullMat, &globalFullMat, true);
@@ -196,8 +194,7 @@ void GlobalBuilder::assembleConvectionMatrix(){
 
     int domainSize = (msh->elementTags[0].size()/size);
     int domainStart = rank * domainSize;
-    int domainEnd = domainStart + domainSize + 
-    (msh->elementTags[0].size()%size) * (rank == size-1);
+    int domainEnd = domainStart + domainSize;
 
     for(int e = domainStart; e < domainEnd; e++){
         size_t elementTag = msh->elementTags[0][e];

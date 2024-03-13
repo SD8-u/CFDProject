@@ -7,7 +7,7 @@ def generate_plot(x, y, u, v, p):
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    contour_plot = ax.contourf(np.unique(x), np.unique(y), p.transpose(), 70, cmap='jet') 
+    contour_plot = ax.contourf(np.unique(x), np.unique(y), p.transpose(), 70, cmap='turbo') 
     fig.colorbar(contour_plot, label='Pressure', ax=ax)
     ax.quiver(x, y, u, v, color='white')
     ax.set_aspect('equal')
@@ -22,10 +22,10 @@ def generate_plot(x, y, u, v, p):
 
     fig = plt.figure()
     ax = fig.add_subplot(111)
-    contour_plot = ax.contourf(np.unique(x), np.unique(y), p.transpose(), 70, cmap='jet')
+    contour_plot = ax.contourf(np.unique(x), np.unique(y), p.transpose(), 70, cmap='turbo')
     fig.colorbar(contour_plot, label='Pressure')
     ax.streamplot(np.unique(x), np.unique(y), u.transpose(), 
-                    v.transpose(), density=2, linewidth=1, arrowsize=0.5, color='white')
+                    v.transpose(), density=1, linewidth=1, arrowsize=0.5, color='white')
     ax.set_aspect('equal')
     plt.xlabel('X')
     plt.ylabel('Y')

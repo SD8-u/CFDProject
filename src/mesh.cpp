@@ -63,7 +63,7 @@ Mesh::Mesh(string filePath, double boundaryVel){
             {0}, {0, 0}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
         }
     }
-    
+
     //Retrieve all other nodes
     gmsh::model::mesh::getNodes(nodeTags, nodeCoords, paramCoords);
     for(int node = 0; node < nodeCoords.size()/3; node++){

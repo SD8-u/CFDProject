@@ -17,6 +17,7 @@ Solver::Solver(Mesh* msh, double dt, double viscosity){
     globalBuild->assembleMatrices();
     globalBuild->assembleVectors();
 
+
     VecCreate(PETSC_COMM_WORLD, &tempVec);
     VecSetSizes(tempVec, PETSC_DECIDE, msh->nNodes * 2 + msh->nLinear);
     VecSetFromOptions(tempVec);
@@ -27,9 +28,9 @@ Solver::Solver(Mesh* msh, double dt, double viscosity){
     KSPCreate(PETSC_COMM_WORLD, &stp2Solver);
     KSPSetType(stp2Solver, KSPGMRES);
     KSPSetOperators(stp2Solver, globalBuild->globalFullMat, globalBuild->globalFullMat);
-    //KSPSetInitialGuessNonzero(stp2Solver, PETSC_TRUE);
+    KSPSetInitialGuessNonzero(stp2Solver, PETSC_TRUE);
     KSPGetPC(stp2Solver, &preConditioner);
-    PCSetType(preConditioner, PCASM);
+    PCSetType(preConditioner, PCNONE);
     KSPSetFromOptions(stp2Solver);
 
     PetscInt vecIndices[msh->nNodes * 2];
@@ -75,10 +76,9 @@ void Solver::applyDirichletConditions(Mat *m, Vec *v, bool expl){
 }
 
 void Solver::computeFirstStep(){
-
     Mat tempMat;
     Vec tempVec;
-    PC preConditoner;
+    PC preConditioner;
 
     VecCreate(PETSC_COMM_WORLD, &tempVec);
     VecSetSizes(tempVec, PETSC_DECIDE, msh->nNodes * 2);
@@ -86,32 +86,29 @@ void Solver::computeFirstStep(){
 
     globalBuild->assembleConvectionMatrix();
     MatConvert(globalBuild->globalMassMat, MATSAME, MAT_INITIAL_MATRIX, &tempMat);
-
     //Subtract half viscous + convection terms from right hand side
     MatAXPY(tempMat, -1/2, globalBuild->globalViscMat, DIFFERENT_NONZERO_PATTERN);
     MatAXPY(tempMat, -1/2, globalBuild->globalConvMat, DIFFERENT_NONZERO_PATTERN);
 
     MatMult(tempMat, globalBuild->velocityVec, tempVec);
-
     //Reapply viscous and convection terms to system of equations
     MatAXPY(tempMat, 1.0, globalBuild->globalViscMat, DIFFERENT_NONZERO_PATTERN);
     MatAXPY(tempMat, 1.0, globalBuild->globalConvMat, DIFFERENT_NONZERO_PATTERN);
 
     //Impose Dirichlet Conditions
     applyDirichletConditions(&tempMat, &tempVec, false);
-
     //Solve system
     KSPCreate(PETSC_COMM_WORLD, &stp1Solver);
     KSPSetType(stp1Solver, KSPGMRES);
     KSPSetOperators(stp1Solver, tempMat, tempMat);
+    KSPSetInitialGuessNonzero(stp1Solver, PETSC_TRUE);
 
-    KSPGetPC(stp1Solver, &preConditoner);
-    PCSetType(preConditoner, PCASM);
+    KSPGetPC(stp1Solver, &preConditioner);
+    PCSetType(preConditioner, PCNONE);
     KSPSetFromOptions(stp1Solver);
 
     KSPSolve(stp1Solver, tempVec, globalBuild->velocityVec);
-
-    //applyDirichletConditions(&tempMat, &globalBuild->velocityVec, true);
+    applyDirichletConditions(&tempMat, &globalBuild->velocityVec, true);
 
     //Cleanup
     VecDestroy(&tempVec);
@@ -138,7 +135,6 @@ void Solver::computeSecondStep(){
     //MatDestroy(&tempMat);
 
     MatMult(globalBuild->globalMassMat, globalBuild->velocityVec, tempVec);
-    //VecView(tempVec, PETSC_VIEWER_STDOUT_WORLD);
 
     updateVectors(&tempVec, &solVec, false);
 
@@ -146,7 +142,7 @@ void Solver::computeSecondStep(){
     KSPSolve(stp2Solver, solVec, globalBuild->nodalVec);
     //MatView(globalBuild->globalConvMat, PETSC_VIEWER_STDOUT_WORLD);
 
-    //applyDirichletConditions(&globalBuild->globalFullMat, &globalBuild->nodalVec, true);
+    applyDirichletConditions(&globalBuild->globalFullMat, &globalBuild->nodalVec, true);
     updateVectors(&globalBuild->nodalVec, &globalBuild->velocityVec, true);
     VecDestroy(&solVec);
     VecDestroy(&tempVec);
