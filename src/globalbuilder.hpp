@@ -5,12 +5,15 @@ class GlobalBuilder {
     private:
         double dt;
         double viscosity;
+        int domainSize;
+        int domainStart;
         Mesh *msh;
         LocalBuilder *localBuild;
         void constructVectorMapping();
         void localToGlobalVec(bool full);
         void globalToLocalVec(size_t elementTag, Vec *localVec);
         void localToGlobalMat(size_t elementTag, Mat *localMat, Mat *globalMat, bool final);
+        void getDomain();
     public:
         Vec nodalVec;
         Vec velocityVec;

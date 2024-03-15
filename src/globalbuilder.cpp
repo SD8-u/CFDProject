@@ -1,15 +1,22 @@
 #include "globalbuilder.hpp"
 #include <omp.h>
 
+void GlobalBuilder::getDomain(){
+    int rank = 0;
+    int size = 1;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+
+    domainSize = (msh->elementSize/size);
+    domainStart = rank * domainSize;
+}
+
 GlobalBuilder::GlobalBuilder(int dim, double dt, double visc, Mesh* msh){
     this->dt = 1/dt;
     this->viscosity = visc;
     this->msh = msh;
 
-    int rank;
-    int size = 1;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    getDomain();
 
     MatCreate(PETSC_COMM_WORLD, &globalMassMat);
     MatSetSizes(globalMassMat, PETSC_DECIDE, PETSC_DECIDE, 
@@ -141,17 +148,12 @@ void GlobalBuilder::globalToLocalVec(size_t elementTag, Vec *localVec){
 
 void GlobalBuilder::assembleMatrices(){
     localBuild = new LocalBuilder(dt, viscosity);
-    int rank, size;
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    int domainSize = (msh->elementTags[0].size()/size);
-    int domainStart = rank * domainSize;
-    int domainEnd = domainStart + domainSize + 
-    (msh->elementTags[0].size()%size) * (rank == size-1);
+    int domainEnd = domainStart + domainSize;
+    if(msh->elementSize - domainEnd < domainSize){
+        domainEnd += msh->elementSize - domainEnd;
+    }
 
-    cout << "Size: "<< size << "\n";
-    cout << "Rank: "<< rank << "\n";
     cout << "domain size: " << domainSize << "\n";
     cout << "domain start: " << domainStart << "\n";
     cout << "domain end: " << domainEnd << "\n";
@@ -187,13 +189,7 @@ void GlobalBuilder::assembleConvectionMatrix(){
     VecSetFromOptions(localVelVec);
 
     localBuild = new LocalBuilder();
-
-    int rank, size;
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-
-    int domainSize = (msh->elementTags[0].size()/size);
-    int domainStart = rank * domainSize;
+    
     int domainEnd = domainStart + domainSize;
 
     for(int e = domainStart; e < domainEnd; e++){

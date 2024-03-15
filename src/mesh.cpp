@@ -26,7 +26,6 @@ Mesh::Mesh(string filePath, double boundaryVel){
     vector<double> nodeCoords;
     vector<double> paramCoords;
     int nId = 0;
-    int pId = 0;
 
     gmsh::model::mesh::getNodes(nodeTags, nodeCoords, paramCoords);
     nNodes = nodeTags.size();
@@ -39,46 +38,60 @@ Mesh::Mesh(string filePath, double boundaryVel){
         cout << "Name: " << name << " Tag: " << dimTag.second << " Dim: " << dimTag.first << "\n";
     }
 
-    //Retrieve nodes at inlet
     int inletTag = 2;
-    gmsh::model::mesh::getNodesForPhysicalGroup(1, inletTag, nodeTags, nodeCoords);
-    for(int node = 0; node < nodeCoords.size()/3; node++){
-        dirichletIds.push_back(nId);
-        dirichletIds.push_back(nId + nNodes);
-        nodeIds[nId] = nodeTags[node];
-        nodes[nodeTags[node]] = Node{nId++, -1, false, true, 
-        {0}, {node == 0 || node == ((nodeCoords.size() - 3)/3) ? 0 : boundaryVel, 0}, 
-        0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
-    }
+    gmsh::model::mesh::getNodesForPhysicalGroup(1, inletTag, nodeTags, nodeCoords); 
+    getNodes(&nId, nodeTags, nodeCoords, boundaryVel, false, true); 
 
-    //Retreive nodes in boundary
     int boundaryTag = 1;
     gmsh::model::mesh::getNodesForPhysicalGroup(1, boundaryTag, nodeTags, nodeCoords);
-    for(int node = 0; node < nodeCoords.size()/3; node++){
-        if(nodes.find(nodeTags[node]) == nodes.end()){
-            nodeIds[nId] = nodeTags[node];
-            dirichletIds.push_back(nId);
-            dirichletIds.push_back(nId + nNodes);
-            nodes[nodeTags[node]] = Node{nId++, -1, true, false, 
-            {0}, {0, 0}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
-        }
-    }
+    getNodes(&nId, nodeTags, nodeCoords, 0, true, false);
 
     //Retrieve all other nodes
     gmsh::model::mesh::getNodes(nodeTags, nodeCoords, paramCoords);
+    getNodes(&nId, nodeTags, nodeCoords, 0, false, false);
+
+    
+    //Retrieve element connectivity
+    getElementConnectivity();
+    cout << "Linear Nodes: " << nLinear << "\n";
+}
+
+void Mesh::getNodes(int *nId, vector<size_t> nodeTags, vector<double> nodeCoords,
+double boundaryVel, bool boundary, bool inlet){
+
+    //Retrieve nodes
     for(int node = 0; node < nodeCoords.size()/3; node++){
-        if(nodes.find(nodeTags[node]) == nodes.end()){
-            nodeIds[nId] = nodeTags[node];
-            nodes[nodeTags[node]] = Node{nId++, -1, false, false, 
-            {0}, {0, 0}, 0, nodeCoords[node * 3], nodeCoords[node * 3 + 1]};
+        if(nodes.find(nodeTags[node]) == nodes.end() || inlet){
+
+            if(boundary || inlet){
+                dirichletIds.push_back(*nId);
+                dirichletIds.push_back(*nId + nNodes);
+            }
+            nodeIds[*nId] = nodeTags[node];
+            
+            nodes[nodeTags[node]] = 
+            Node{
+                (*nId)++, 
+                -1, 
+                boundary, 
+                inlet, 
+                {0}, 
+                {boundaryVel, 0}, 
+                0, 
+                nodeCoords[node * 3], 
+                nodeCoords[node * 3 + 1]
+            };
         }
     }
-    
-    //Encode element connectivity
+}
+
+//Encode Element Connectivity
+void Mesh::getElementConnectivity(){
     vector<int> elementTypes;
     vector<vector<size_t>> elementNodeTags;
     gmsh::model::mesh::getElements(elementTypes, elementTags, elementNodeTags, 2, -1);
     unordered_set<size_t> pNodes;
+    int pId = 0;
 
     this->elementSize = elementTags[0].size();
     for(int element = 0; element < elementTags[0].size(); element++){
@@ -97,16 +110,5 @@ Mesh::Mesh(string filePath, double boundaryVel){
         }
     }
     nLinear = pId;
-    cout << "Linear Nodes: " << nLinear << "\n";
-}
-
-//Returns vector of coordinates for each node
-vector<vector<double>> Mesh::getNodeCoords(){
-    vector<vector<double>> coord = vector<vector<double>>(2);
-    for(int i = 0; i < nNodes; i++){
-        coord[0].push_back(nodes[nodeIds[i]].x);
-        coord[1].push_back(nodes[nodeIds[i]].y);
-    }
-    return coord;
 }
 

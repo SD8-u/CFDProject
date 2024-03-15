@@ -30,12 +30,12 @@ if(BUILD_MODULE)
     
     find_package(Python 3.10 COMPONENTS Interpreter Development REQUIRED)
     find_package(pybind11 CONFIG REQUIRED)
-    find_package(OpenMP REQUIRED)
 
     # Set the include directories for the c++ executable
     target_include_directories(main PRIVATE
         /usr/include/petsc
         /usr/include
+        /usr/lib/x86_64-linux-gnu/openmpi/include
         /usr/include/python3.10
         ${CMAKE_CURRENT_SOURCE_DIR}/venv/lib/python3.10/site-packages/pybind11/include
         ${CMAKE_CURRENT_SOURCE_DIR}/src
@@ -43,26 +43,22 @@ if(BUILD_MODULE)
 
     # Link the required libraries for the c++ executable
     target_link_libraries(main PRIVATE
+        mpi
         petsc
         stdc++
         gmsh
         python3.10
-        OpenMP::OpenMP_CXX
     )
 
     # Set compiler flags for the c++ executable
     target_compile_options(main PRIVATE
         -fdiagnostics-color=always
         -g
-        -fopenmp
     )
 
     # Set output directory for the c++ executable
     set_target_properties(main PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${OUTDIR})
-
-    find_package(pybind11 CONFIG REQUIRED)
-    find_package(OpenMP REQUIRED)
 
     # Create the python bloodflow module target
     pybind11_add_module(bloodflow ${SOURCES})
@@ -72,17 +68,18 @@ if(BUILD_MODULE)
         /usr/include/petsc
         /usr/include
         /usr/include/python3.10
+        /usr/lib/x86_64-linux-gnu/openmpi/include
         ${CMAKE_CURRENT_SOURCE_DIR}/venv/lib/python3.10/site-packages/pybind11/include
         ${CMAKE_CURRENT_SOURCE_DIR}/src
     )
 
     # Link the required libraries for the bloodflow module
     target_link_libraries(bloodflow PRIVATE
+        mpi
         petsc
         stdc++
         gmsh
         python3.10
-        OpenMP::OpenMP_CXX
     )
 
     # Set output directory for the bloodflow module
@@ -94,7 +91,6 @@ endif()
 if(BUILD_TESTS)
     # Locate GTest
     find_package(GTest REQUIRED)
-    find_package(OpenMP REQUIRED)
     
     include_directories(
         ${GTEST_INCLUDE_DIRS}
@@ -102,6 +98,7 @@ if(BUILD_TESTS)
         /usr/include
         /usr/local/include
         /usr/include/gmsh
+        /usr/lib/x86_64-linux-gnu/openmpi/include
         ${CMAKE_CURRENT_SOURCE_DIR}/src
     )
 
@@ -120,7 +117,6 @@ if(BUILD_TESTS)
         petsc
         stdc++
         gmsh
-        OpenMP::OpenMP_CXX
         ${GTEST_LIBRARIES} 
     )
 endif()

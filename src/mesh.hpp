@@ -20,11 +20,17 @@ struct Node {
 };
 
 class Mesh {
+    private:
+        void getNodes(int *nId, vector<size_t> nodeTags, vector<double> nodeCoords, double boundaryVel, 
+        bool boundary, bool inlet);
+        void getElementConnectivity();
+
     public:
         int elementSize;
         int nNodes;
         int nLinear;
         double boundaryVel = 1.0;
+
         map<size_t, Node> nodes;
         map<int, size_t> nodeIds;
         vector<vector<size_t>> elementTags;
@@ -33,5 +39,4 @@ class Mesh {
 
         Mesh(string filePath, double boundaryVel);
         static void generateMesh(string filePath, int refinement);
-        vector<vector<double>> getNodeCoords();
 };
