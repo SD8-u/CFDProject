@@ -200,7 +200,7 @@ void GlobalBuilder::assembleConvectionMatrix(){
         size_t elementTag = msh->elementTags[0][e];
 
         globalToLocalVec(elementTag, &localVelVec);
-        localBuild->computeConvectionMatrix(elementTag, &localVelVec);
+        localBuild->assembleConvectionMatrix(elementTag, &localVelVec);
         localToGlobalMat(elementTag, &localBuild->localConvMat, &globalConvMat);
     }
     MatAssemblyBegin(globalConvMat, MAT_FINAL_ASSEMBLY);

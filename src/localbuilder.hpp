@@ -30,6 +30,7 @@ class LocalBuilder {
         void computeGradientMatrix();
         void computeMassMatrix();
         void computeViscosityMatrix();
+        void computeConvectionMatrix(PetscScalar *v);
         void computeFinalMatrix();
         void buildBasisMatrix();
         void buildBasisGradMatrix();
@@ -44,5 +45,5 @@ class LocalBuilder {
         LocalBuilder(double dt, double viscosity);
         ~LocalBuilder();
         void assembleMatrices(size_t elementTag);
-        void computeConvectionMatrix(size_t elementTag, Vec *velocityVec);
+        void assembleConvectionMatrix(size_t elementTag, Vec *velocityVec);
 };

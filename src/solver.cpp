@@ -17,7 +17,6 @@ Solver::Solver(Mesh* msh, double dt, double viscosity){
     globalBuild->assembleMatrices();
     globalBuild->assembleVectors();
 
-
     VecCreate(PETSC_COMM_WORLD, &tempVec);
     VecSetSizes(tempVec, PETSC_DECIDE, msh->nNodes * 2 + msh->nLinear);
     VecSetFromOptions(tempVec);

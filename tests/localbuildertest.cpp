@@ -51,7 +51,7 @@ TEST_F(LocalBuilderTest, LocalBuilderConvSize) {
     VecAssemblyBegin(velVec);
     VecAssemblyEnd(velVec);
 
-    build->computeConvectionMatrix(msh->elementTags[0][0], &velVec);
+    build->assembleConvectionMatrix(msh->elementTags[0][0], &velVec);
     PetscInt row, col;
     MatGetSize(build->localConvMat, &row, &col);
     ASSERT_EQ(row, 12);
@@ -94,7 +94,7 @@ TEST_F(LocalBuilderTest, LocalBuilderNonZeroConvMat) {
     }
     VecAssemblyBegin(velVec);
     VecAssemblyEnd(velVec);
-    build->computeConvectionMatrix(msh->elementTags[0][0], &velVec);
+    build->assembleConvectionMatrix(msh->elementTags[0][0], &velVec);
     double convVal = 0;
     for(int i = 0; i < 12; i++){
         for(int j = 0; j < 12; j++){

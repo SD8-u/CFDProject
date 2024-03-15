@@ -229,18 +229,7 @@ void LocalBuilder::computeViscosityMatrix(){
     cleanUp(viscMats);
 }
 
-void LocalBuilder::computeConvectionMatrix(size_t elementTag, Vec *velocityVec){
-    this->elementTag = elementTag;
-    vector<double> coords;
-    gmsh::model::mesh::getJacobian(elementTag, gaussPoints, j, jdets, coords);
-    buildInverseJacobian();
-    MatZeroEntries(localConvMat);
-    buildBasisGradMatrix();
-    PetscScalar v[12] = {0};
-    for(int a = 0; a < 12; a++){
-        VecGetValues(*velocityVec, 1, &a, &v[a]);
-    }
-
+void LocalBuilder::computeConvectionMatrix(PetscScalar *v){
     for(int i = 0; i < 12; i++){
         for(int j = 0; j < 12; j++){
             PetscScalar convVal = 0.0;
@@ -272,9 +261,6 @@ void LocalBuilder::computeConvectionMatrix(size_t elementTag, Vec *velocityVec){
             MatSetValue(localConvMat, i, j, (convVal), INSERT_VALUES);
         }
     }
-
-    MatAssemblyBegin(localConvMat, MAT_FINAL_ASSEMBLY);
-    MatAssemblyEnd(localConvMat, MAT_FINAL_ASSEMBLY);
 }
 
 void LocalBuilder::computeGradientMatrix(){
@@ -299,7 +285,6 @@ void LocalBuilder::computeGradientMatrix(){
 
 void LocalBuilder::computeFinalMatrix(){
     MatZeroEntries(localFullMat);
-    MatScale(localMassMat, dt);
     Mat localGradTMat;
 
     MatTranspose(localGradMat, MAT_INITIAL_MATRIX, &localGradTMat);
@@ -310,7 +295,7 @@ void LocalBuilder::computeFinalMatrix(){
             PetscScalar viscVal;
             MatGetValue(localMassMat, i, j, &massVal);
             MatGetValue(localViscMat, i, j, &viscVal);
-            MatSetValue(localFullMat, i, j, massVal, INSERT_VALUES);
+            MatSetValue(localFullMat, i, j, massVal*dt, INSERT_VALUES);
         }
     }
 
@@ -338,9 +323,7 @@ void LocalBuilder::computeFinalMatrix(){
 
     MatAssemblyBegin(localFullMat, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(localFullMat, MAT_FINAL_ASSEMBLY);
-
     MatDestroy(&localGradTMat);
-    MatScale(localMassMat, 1/dt);
 }
 
 void LocalBuilder::assembleMatrices(size_t elementTag){
@@ -356,4 +339,22 @@ void LocalBuilder::assembleMatrices(size_t elementTag){
     computeViscosityMatrix();
     computeGradientMatrix();
     computeFinalMatrix();
+}
+
+void LocalBuilder::assembleConvectionMatrix(size_t elementTag, Vec *velocityVec){
+    this->elementTag = elementTag;
+    vector<double> coords;
+    gmsh::model::mesh::getJacobian(elementTag, gaussPoints, j, jdets, coords);
+    buildInverseJacobian();
+    MatZeroEntries(localConvMat);
+    buildBasisGradMatrix();
+    PetscScalar v[12] = {0};
+    for(int a = 0; a < 12; a++){
+        VecGetValues(*velocityVec, 1, &a, &v[a]);
+    }
+
+    computeConvectionMatrix(v);
+
+    MatAssemblyBegin(localConvMat, MAT_FINAL_ASSEMBLY);
+    MatAssemblyEnd(localConvMat, MAT_FINAL_ASSEMBLY);
 }
