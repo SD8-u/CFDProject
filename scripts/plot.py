@@ -1,5 +1,4 @@
 import matplotlib.pyplot as plt
-from matplotlib.tri import Triangulation
 import numpy as np
 
 def generate_plot(x, y, u, v, p): 

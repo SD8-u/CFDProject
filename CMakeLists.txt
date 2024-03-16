@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.14)
-project(bloodFlowCFD)
+project(cfdCFD)
 
 option(BUILD_MODULE "Build python module" ON)
 option(BUILD_TESTS "Build tests" ON)
@@ -60,11 +60,11 @@ if(BUILD_MODULE)
     set_target_properties(main PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${OUTDIR})
 
-    # Create the python bloodflow module target
-    pybind11_add_module(bloodflow ${SOURCES})
+    # Create the python cfd module target
+    pybind11_add_module(cfd ${SOURCES})
 
-    # Set include directories for the bloodflow module
-    target_include_directories(bloodflow PRIVATE
+    # Set include directories for the cfd module
+    target_include_directories(cfd PRIVATE
         /usr/include/petsc
         /usr/include
         /usr/include/python3.10
@@ -73,8 +73,8 @@ if(BUILD_MODULE)
         ${CMAKE_CURRENT_SOURCE_DIR}/src
     )
 
-    # Link the required libraries for the bloodflow module
-    target_link_libraries(bloodflow PRIVATE
+    # Link the required libraries for the cfd module
+    target_link_libraries(cfd PRIVATE
         mpi
         petsc
         stdc++
@@ -82,8 +82,8 @@ if(BUILD_MODULE)
         python3.10
     )
 
-    # Set output directory for the bloodflow module
-    set_target_properties(bloodflow PROPERTIES
+    # Set output directory for the cfd module
+    set_target_properties(cfd PROPERTIES
         LIBRARY_OUTPUT_DIRECTORY ${MODDIR}
     )
 endif()

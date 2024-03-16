@@ -1,83 +1,83 @@
 #include <gtest/gtest.h>
+
 #include "solver.hpp"
 
 class MeshTest : public testing::Test {
-    protected:
-        Mesh *msh;
+ protected:
+  Mesh *msh;
 
-        static void SetUpTestSuite() {
-            gmsh::initialize();
-            PetscInitializeNoArguments();
-            ::testing::internal::CaptureStdout();
-        }
+  static void SetUpTestSuite() {
+    gmsh::initialize();
+    PetscInitializeNoArguments();
+    ::testing::internal::CaptureStdout();
+  }
 
-        void TearDown() {
-            delete(msh);
-            gmsh::clear();
-        }
+  void TearDown() {
+    delete (msh);
+    gmsh::clear();
+  }
 
-        static void TearDownTestSuite(){
-            ::testing::internal::GetCapturedStdout();
-        }
+  static void TearDownTestSuite() { ::testing::internal::GetCapturedStdout(); }
 };
 
 TEST_F(MeshTest, MeshElementSize1) {
-    Mesh::generateMesh("geometry/lidcavity.geo", 1);
-    msh = new Mesh("geometry/temp.msh", 1);
-    ASSERT_EQ(msh->elementSize, 16);
+  Mesh::generateMesh("geometry/lidcavity.geo", 1);
+  msh = new Mesh("geometry/temp.msh", 1);
+  ASSERT_EQ(msh->elementSize, 16);
 }
 
 TEST_F(MeshTest, MeshElementSize2) {
-    Mesh::generateMesh("geometry/lidcavity.geo", 2);
-    msh = new Mesh("geometry/temp.msh", 1);
-    ASSERT_EQ(msh->elementSize, 64);
+  Mesh::generateMesh("geometry/lidcavity.geo", 2);
+  msh = new Mesh("geometry/temp.msh", 1);
+  ASSERT_EQ(msh->elementSize, 64);
 }
 
 TEST_F(MeshTest, MeshElementSize3) {
-    Mesh::generateMesh("geometry/lidcavity.geo", 3);
-    msh = new Mesh("geometry/temp.msh", 1);
-    ASSERT_EQ(msh->elementSize, 256);
+  Mesh::generateMesh("geometry/lidcavity.geo", 3);
+  msh = new Mesh("geometry/temp.msh", 1);
+  ASSERT_EQ(msh->elementSize, 256);
 }
 
 TEST_F(MeshTest, MeshElementSize4) {
-    Mesh::generateMesh("geometry/lidcavity.geo", 4);
-    msh = new Mesh("geometry/temp.msh", 1);
-    ASSERT_EQ(msh->elementSize, 1024);
+  Mesh::generateMesh("geometry/lidcavity.geo", 4);
+  msh = new Mesh("geometry/temp.msh", 1);
+  ASSERT_EQ(msh->elementSize, 1024);
 }
 
 TEST_F(MeshTest, MeshElementSize5) {
-    Mesh::generateMesh("geometry/lidcavity.geo", 5);
-    msh = new Mesh("geometry/temp.msh", 1);
-    ASSERT_EQ(msh->elementSize, 4096);
+  Mesh::generateMesh("geometry/lidcavity.geo", 5);
+  msh = new Mesh("geometry/temp.msh", 1);
+  ASSERT_EQ(msh->elementSize, 4096);
 }
 
 TEST_F(MeshTest, MeshElementSize6) {
-    Mesh::generateMesh("geometry/lidcavity.geo", 6);
-     msh = new Mesh("geometry/temp.msh", 1);
-    ASSERT_EQ(msh->elementSize, 16384);
+  Mesh::generateMesh("geometry/lidcavity.geo", 6);
+  msh = new Mesh("geometry/temp.msh", 1);
+  ASSERT_EQ(msh->elementSize, 16384);
 }
 
 TEST_F(MeshTest, NodeTest) {
-    Mesh::generateMesh("geometry/lidcavity.geo", 4);
-    msh = new Mesh("geometry/temp.msh", 1);
-    vector<double> coord;
-    vector<double> paramCoord;
-    for(int i = 0; i < msh->nNodes; i++){
-        gmsh::model::mesh::getNode(msh->nodeIds[i], coord, paramCoord);
-        ASSERT_EQ(coord[0], msh->nodes[msh->nodeIds[i]].x);
-        ASSERT_EQ(coord[1], msh->nodes[msh->nodeIds[i]].y);
-    }
+  Mesh::generateMesh("geometry/lidcavity.geo", 4);
+  msh = new Mesh("geometry/temp.msh", 1);
+  vector<double> coord;
+  vector<double> paramCoord;
+  for (int i = 0; i < msh->nNodes; i++) {
+    gmsh::model::mesh::getNode(msh->nodeIds[i], coord, paramCoord);
+    ASSERT_EQ(coord[0], msh->nodes[msh->nodeIds[i]].x);
+    ASSERT_EQ(coord[1], msh->nodes[msh->nodeIds[i]].y);
+  }
 }
 
 TEST_F(MeshTest, ElementTest) {
-    Mesh::generateMesh("geometry/lidcavity.geo", 4);
-    msh = new Mesh("geometry/temp.msh", 1);
-    for(int i = 0; i < msh->elements.size(); i++){
-        vector<size_t> nodeTags;
-        int elementType;
-        gmsh::model::mesh::getElement(msh->elementTags[0][i], elementType, nodeTags);
-        for(int j = 0; j < nodeTags.size(); j++) {
-            ASSERT_EQ(msh->elements[msh->elementTags[0][i]][j], nodeTags[j]);
-        } 
+  Mesh::generateMesh("geometry/lidcavity.geo", 4);
+  msh = new Mesh("geometry/temp.msh", 1);
+  for (int i = 0; i < msh->elements.size(); i++) {
+    vector<size_t> nodeTags;
+    int elementType;
+    gmsh::model::mesh::getElement(msh->elementTags[0][i], elementType,
+                                  nodeTags);
+    for (int j = 0; j < nodeTags.size(); j++) {
+      ASSERT_EQ(msh->elements[msh->elementTags[0][i]][j], nodeTags[j]);
     }
+  }
 }
