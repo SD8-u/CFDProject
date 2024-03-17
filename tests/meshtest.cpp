@@ -23,37 +23,37 @@ class MeshTest : public testing::Test {
 TEST_F(MeshTest, MeshElementSize1) {
   Mesh::generateMesh("geometry/lidcavity.geo", 1);
   msh = new Mesh("geometry/temp.msh", 1);
-  ASSERT_EQ(msh->elementSize, 16);
+  ASSERT_EQ(msh->elementSize(), 16);
 }
 
 TEST_F(MeshTest, MeshElementSize2) {
   Mesh::generateMesh("geometry/lidcavity.geo", 2);
   msh = new Mesh("geometry/temp.msh", 1);
-  ASSERT_EQ(msh->elementSize, 64);
+  ASSERT_EQ(msh->elementSize(), 64);
 }
 
 TEST_F(MeshTest, MeshElementSize3) {
   Mesh::generateMesh("geometry/lidcavity.geo", 3);
   msh = new Mesh("geometry/temp.msh", 1);
-  ASSERT_EQ(msh->elementSize, 256);
+  ASSERT_EQ(msh->elementSize(), 256);
 }
 
 TEST_F(MeshTest, MeshElementSize4) {
   Mesh::generateMesh("geometry/lidcavity.geo", 4);
   msh = new Mesh("geometry/temp.msh", 1);
-  ASSERT_EQ(msh->elementSize, 1024);
+  ASSERT_EQ(msh->elementSize(), 1024);
 }
 
 TEST_F(MeshTest, MeshElementSize5) {
   Mesh::generateMesh("geometry/lidcavity.geo", 5);
   msh = new Mesh("geometry/temp.msh", 1);
-  ASSERT_EQ(msh->elementSize, 4096);
+  ASSERT_EQ(msh->elementSize(), 4096);
 }
 
 TEST_F(MeshTest, MeshElementSize6) {
   Mesh::generateMesh("geometry/lidcavity.geo", 6);
   msh = new Mesh("geometry/temp.msh", 1);
-  ASSERT_EQ(msh->elementSize, 16384);
+  ASSERT_EQ(msh->elementSize(), 16384);
 }
 
 TEST_F(MeshTest, NodeTest) {
@@ -61,23 +61,28 @@ TEST_F(MeshTest, NodeTest) {
   msh = new Mesh("geometry/temp.msh", 1);
   vector<double> coord;
   vector<double> paramCoord;
-  for (int i = 0; i < msh->nNodes; i++) {
-    gmsh::model::mesh::getNode(msh->nodeIds[i], coord, paramCoord);
-    ASSERT_EQ(coord[0], msh->nodes[msh->nodeIds[i]].x);
-    ASSERT_EQ(coord[1], msh->nodes[msh->nodeIds[i]].y);
+  vector<size_t> nodeTags;
+  gmsh::model::mesh::getNodes(nodeTags, coord, paramCoord);
+  for (int i = 0; i < nodeTags.size(); i++) {
+    Node node = msh->getNode(nodeTags[i]);
+    ASSERT_EQ(coord[i * 3], node.x);
+    ASSERT_EQ(coord[i * 3 + 1], node.y);
   }
 }
 
 TEST_F(MeshTest, ElementTest) {
   Mesh::generateMesh("geometry/lidcavity.geo", 4);
   msh = new Mesh("geometry/temp.msh", 1);
-  for (int i = 0; i < msh->elements.size(); i++) {
+
+  for (int i = 0; i < msh->elementSize(); i++) {
     vector<size_t> nodeTags;
     int elementType;
-    gmsh::model::mesh::getElement(msh->elementTags[0][i], elementType,
-                                  nodeTags);
+    gmsh::model::mesh::getElement(msh->getElement(i), elementType, nodeTags);
+
     for (int j = 0; j < nodeTags.size(); j++) {
-      ASSERT_EQ(msh->elements[msh->elementTags[0][i]][j], nodeTags[j]);
+      Node n1 = msh->getNode(msh->getElement(i), j);
+      Node n2 = msh->getNode(nodeTags[j]);
+      ASSERT_EQ(n1.id, n2.id);
     }
   }
 }

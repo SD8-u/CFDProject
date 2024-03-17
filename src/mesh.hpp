@@ -30,24 +30,40 @@ struct Node {
 
 class Mesh {
  private:
+  int nP1;
+  int nP2;
+  int nElements;
+  int nDirichlet;
   double boundaryVel = 1.0;
-  void getNodes(int *nId, vector<size_t> nodeTags, vector<double> nodeCoords,
+
+  map<size_t, Node> nodes;
+  map<int, size_t> nodeIds;
+  vector<PetscInt> dirichletIds;
+  map<size_t, vector<size_t>> elements;
+
+  void getNodes(int* nId, vector<size_t> nodeTags, vector<double> nodeCoords,
                 double boundaryVel, bool boundary, bool inlet);
   void getElementConnectivity();
 
  public:
-  int elementSize;
-  int nNodes;
-  int nLinear;
-
-  map<size_t, Node> nodes;
-  map<int, size_t> nodeIds;
   vector<vector<size_t>> elementTags;
-  map<size_t, vector<size_t>> elements;
-  vector<PetscInt> dirichletIds;
 
-  Mesh(string filePath, double boundaryVel);
   static void generateMesh(string filePath, int refinement);
+  Mesh(string filePath, double boundaryVel);
+
+  int p1Size();
+  int p2Size();
+  int elementSize();
+  int dirichletSize();
+
+  Node getNode(int i);
+  Node getNode(size_t nodeTag);
+  Node getNode(size_t elementTag, int i);
+
+  size_t getElement(int e);
+  vector<size_t> getElements();
+
+  PetscInt* getDirichlet();
 };
 
 #endif  // SRC_MESH_HPP_

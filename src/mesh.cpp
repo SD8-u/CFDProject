@@ -15,37 +15,7 @@ void Mesh::generateMesh(string filePath, int refinement) {
   gmsh::write("geometry/temp.msh");
 }
 
-Mesh::Mesh(string filePath, double boundaryVel) {
-  gmsh::open(filePath);
-  this->boundaryVel = boundaryVel;
-
-  vector<size_t> nodeTags;
-  vector<double> nodeCoords;
-  vector<double> paramCoords;
-  int nId = 0;
-
-  gmsh::model::mesh::getNodes(nodeTags, nodeCoords, paramCoords);
-  nNodes = nodeTags.size();
-
-  int inletTag = 2;
-  gmsh::model::mesh::getNodesForPhysicalGroup(1, inletTag, nodeTags,
-                                              nodeCoords);
-  getNodes(&nId, nodeTags, nodeCoords, boundaryVel, false, true);
-
-  int boundaryTag = 1;
-  gmsh::model::mesh::getNodesForPhysicalGroup(1, boundaryTag, nodeTags,
-                                              nodeCoords);
-  getNodes(&nId, nodeTags, nodeCoords, 0, true, false);
-
-  // Retrieve all other nodes
-  gmsh::model::mesh::getNodes(nodeTags, nodeCoords, paramCoords);
-  getNodes(&nId, nodeTags, nodeCoords, 0, false, false);
-
-  // Retrieve element connectivity
-  getElementConnectivity();
-}
-
-void Mesh::getNodes(int *nId, vector<size_t> nodeTags,
+void Mesh::getNodes(int* nId, vector<size_t> nodeTags,
                     vector<double> nodeCoords, double boundaryVel,
                     bool boundary, bool inlet) {
   // Retrieve nodes
@@ -53,7 +23,7 @@ void Mesh::getNodes(int *nId, vector<size_t> nodeTags,
     if (nodes.find(nodeTags[node]) == nodes.end() || inlet) {
       if (boundary || inlet) {
         dirichletIds.push_back(*nId);
-        dirichletIds.push_back(*nId + nNodes);
+        dirichletIds.push_back(*nId + nP2);
       }
       nodeIds[*nId] = nodeTags[node];
 
@@ -79,7 +49,7 @@ void Mesh::getElementConnectivity() {
   unordered_set<size_t> pNodes;
   int pId = 0;
 
-  this->elementSize = elementTags[0].size();
+  this->nElements = elementTags[0].size();
   for (int element = 0; element < elementTags[0].size(); element++) {
     int type;
     vector<size_t> nodeTags;
@@ -95,5 +65,55 @@ void Mesh::getElementConnectivity() {
       elements[elementTags[0][element]].push_back(nodeTags[node]);
     }
   }
-  nLinear = pId;
+  nP1 = pId;
 }
+
+Mesh::Mesh(string filePath, double boundaryVel) {
+  gmsh::open(filePath);
+  this->boundaryVel = boundaryVel;
+
+  vector<size_t> nodeTags;
+  vector<double> nodeCoords;
+  vector<double> paramCoords;
+  int nId = 0;
+
+  gmsh::model::mesh::getNodes(nodeTags, nodeCoords, paramCoords);
+  nP2 = nodeTags.size();
+
+  int inletTag = 2;
+  gmsh::model::mesh::getNodesForPhysicalGroup(1, inletTag, nodeTags,
+                                              nodeCoords);
+  getNodes(&nId, nodeTags, nodeCoords, boundaryVel, false, true);
+
+  int boundaryTag = 1;
+  gmsh::model::mesh::getNodesForPhysicalGroup(1, boundaryTag, nodeTags,
+                                              nodeCoords);
+  getNodes(&nId, nodeTags, nodeCoords, 0, true, false);
+
+  // Retrieve all other nodes
+  gmsh::model::mesh::getNodes(nodeTags, nodeCoords, paramCoords);
+  getNodes(&nId, nodeTags, nodeCoords, 0, false, false);
+
+  this->nDirichlet = dirichletIds.size();
+
+  // Retrieve element connectivity
+  getElementConnectivity();
+}
+
+int Mesh::p1Size() { return nP1; }
+int Mesh::p2Size() { return nP2; }
+
+int Mesh::elementSize() { return nElements; }
+
+int Mesh::dirichletSize() { return nDirichlet; }
+
+Node Mesh::getNode(int i) { return nodes[nodeIds[i]]; }
+Node Mesh::getNode(size_t nodeTag) { return nodes[nodeTag]; }
+Node Mesh::getNode(size_t elementTag, int i) {
+  return nodes[elements[elementTag][i]];
+}
+
+size_t Mesh::getElement(int e) { return elementTags[0][e]; }
+vector<size_t> Mesh::getElements() { return elementTags[0]; }
+
+PetscInt* Mesh::getDirichlet() { return dirichletIds.data(); }

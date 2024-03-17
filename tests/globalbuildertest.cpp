@@ -28,14 +28,14 @@ TEST_F(GlobalBuilderTest, GlobalBuilderMatSize) {
   build->assembleMatrices();
   PetscInt row, col;
   MatGetSize(build->globalMassMat, &row, &col);
-  ASSERT_EQ(row, msh->nNodes * 2);
-  ASSERT_EQ(col, msh->nNodes * 2);
+  ASSERT_EQ(row, msh->p2Size() * 2);
+  ASSERT_EQ(col, msh->p2Size() * 2);
   MatGetSize(build->globalViscMat, &row, &col);
-  ASSERT_EQ(row, msh->nNodes * 2);
-  ASSERT_EQ(col, msh->nNodes * 2);
+  ASSERT_EQ(row, msh->p2Size() * 2);
+  ASSERT_EQ(col, msh->p2Size() * 2);
   MatGetSize(build->globalFullMat, &row, &col);
-  ASSERT_EQ(row, msh->nNodes * 2 + msh->nLinear);
-  ASSERT_EQ(col, msh->nNodes * 2 + msh->nLinear);
+  ASSERT_EQ(row, msh->p2Size() * 2 + msh->p1Size());
+  ASSERT_EQ(col, msh->p2Size() * 2 + msh->p1Size());
 }
 
 TEST_F(GlobalBuilderTest, GlobalBuilderConvSize) {
@@ -43,41 +43,28 @@ TEST_F(GlobalBuilderTest, GlobalBuilderConvSize) {
   build->assembleConvectionMatrix();
   PetscInt row, col;
   MatGetSize(build->globalConvMat, &row, &col);
-  ASSERT_EQ(row, msh->nNodes * 2);
-  ASSERT_EQ(col, msh->nNodes * 2);
+  ASSERT_EQ(row, msh->p2Size() * 2);
+  ASSERT_EQ(col, msh->p2Size() * 2);
 }
 
 TEST_F(GlobalBuilderTest, GlobalBuilderVecSize) {
   build->assembleVectors();
   PetscInt size;
   VecGetSize(build->velocityVec, &size);
-  ASSERT_EQ(size, msh->nNodes * 2);
+  ASSERT_EQ(size, msh->p2Size() * 2);
   VecGetSize(build->nodalVec, &size);
-  ASSERT_EQ(size, msh->nNodes * 2 + msh->nLinear);
+  ASSERT_EQ(size, msh->p2Size() * 2 + msh->p1Size());
 }
-
-// TEST_F(GlobalBuilderTest, GlobalBuilderVelUpdate) {
-//     build->assembleVectors();
-//     for(int i = 0; i < msh->nNodes * 2 + msh->nLinear; i++){
-//         VecSetValue(build->nodalVec, i, 1, INSERT_VALUES);
-//     }
-//     build->updateVelocity();
-//     for(int i = 0; i < msh->nNodes * 2; i++){
-//         PetscScalar val;
-//         VecGetValues(build->velocityVec, 1, &i, &val);
-//         ASSERT_EQ(val, 1);
-//     }
-// }
 
 TEST_F(GlobalBuilderTest, GlobalBuilderNonZeroMat) {
   build->assembleVectors();
   build->assembleMatrices();
   build->assembleConvectionMatrix();
   double massVal, viscVal, convVal, fullVal;
-  for (int i = 0; i < msh->nNodes * 2 + msh->nLinear; i++) {
-    for (int j = 0; j < msh->nNodes * 2 + msh->nLinear; j++) {
+  for (int i = 0; i < msh->p2Size() * 2 + msh->p1Size(); i++) {
+    for (int j = 0; j < msh->p2Size() * 2 + msh->p1Size(); j++) {
       PetscScalar val;
-      if (i < msh->nNodes * 2 && j < msh->nNodes * 2) {
+      if (i < msh->p2Size() * 2 && j < msh->p2Size() * 2) {
         MatGetValue(build->globalMassMat, i, j, &val);
         massVal += val;
         MatGetValue(build->globalViscMat, i, j, &val);
@@ -98,9 +85,9 @@ TEST_F(GlobalBuilderTest, GlobalBuilderNonZeroMat) {
 TEST_F(GlobalBuilderTest, GlobalBuilderNonZeroVec) {
   build->assembleVectors();
   double velVal, nodalVal;
-  for (int i = 0; i < msh->nNodes * 2 + msh->nLinear; i++) {
+  for (int i = 0; i < msh->p2Size() * 2 + msh->p1Size(); i++) {
     PetscScalar val;
-    if (i < msh->nNodes * 2) {
+    if (i < msh->p2Size() * 2) {
       VecGetValues(build->velocityVec, 1, &i, &val);
       velVal += val;
     }

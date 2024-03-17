@@ -9,7 +9,7 @@ void Solver::updateVectors(Vec *vec1, Vec *vec2, bool vel) {
 }
 
 Solver::Solver(Mesh *msh, double dt, double viscosity) {
-  const int kVelSize = msh->nNodes * 2;
+  const int kVelSize = msh->p2Size() * 2;
   Vec tempVec;
   this->msh = msh;
   PC preConditioner;
@@ -19,7 +19,7 @@ Solver::Solver(Mesh *msh, double dt, double viscosity) {
   globalBuild->assembleVectors();
 
   VecCreate(PETSC_COMM_WORLD, &tempVec);
-  VecSetSizes(tempVec, PETSC_DECIDE, kVelSize + msh->nLinear);
+  VecSetSizes(tempVec, PETSC_DECIDE, kVelSize + msh->p1Size());
   VecSetFromOptions(tempVec);
 
   applyDirichletConditions(&globalBuild->globalFullMat, &tempVec, false);
@@ -29,7 +29,7 @@ Solver::Solver(Mesh *msh, double dt, double viscosity) {
   KSPSetType(stp2Solver, KSPGMRES);
   KSPSetOperators(stp2Solver, globalBuild->globalFullMat,
                   globalBuild->globalFullMat);
-  KSPSetInitialGuessNonzero(stp2Solver, PETSC_TRUE);
+  // KSPSetInitialGuessNonzero(stp2Solver, PETSC_TRUE);
   KSPGetPC(stp2Solver, &preConditioner);
   PCSetType(preConditioner, PCNONE);
   KSPSetFromOptions(stp2Solver);
@@ -54,17 +54,17 @@ Solver::~Solver() {
 }
 
 void Solver::applyDirichletConditions(Mat *m, Vec *v, bool expl) {
-  PetscInt *rows = msh->dirichletIds.data();
+  PetscInt *rows = msh->getDirichlet();
   int high, low;
   VecGetOwnershipRange(*v, &low, &high);
-  for (int i = 0; i < msh->nNodes; i++) {
-    Node n = msh->nodes[msh->nodeIds[i]];
+  for (int i = 0; i < msh->p2Size(); i++) {
+    Node n = msh->getNode(i);
     if (n.boundary || n.inlet) {
       if (i >= low && i < high) {
         VecSetValue(*v, i, n.velocity[0], INSERT_VALUES);
       }
-      if (i + msh->nNodes >= low && i + msh->nNodes < high) {
-        VecSetValue(*v, i + msh->nNodes, n.velocity[1], INSERT_VALUES);
+      if (i + msh->p2Size() >= low && i + msh->p2Size() < high) {
+        VecSetValue(*v, i + msh->p2Size(), n.velocity[1], INSERT_VALUES);
       }
     }
   }
@@ -73,7 +73,7 @@ void Solver::applyDirichletConditions(Mat *m, Vec *v, bool expl) {
   VecAssemblyEnd(*v);
 
   if (!expl) {
-    MatZeroRows(*m, msh->dirichletIds.size(), rows, 1.0, *v, *v);
+    MatZeroRows(*m, msh->dirichletSize(), rows, 1.0, *v, *v);
   }
   MatAssemblyBegin(*m, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(*m, MAT_FINAL_ASSEMBLY);
@@ -85,7 +85,7 @@ void Solver::computeFirstStep() {
   PC preConditioner;
 
   VecCreate(PETSC_COMM_WORLD, &tempVec);
-  VecSetSizes(tempVec, PETSC_DECIDE, msh->nNodes * 2);
+  VecSetSizes(tempVec, PETSC_DECIDE, msh->p2Size() * 2);
   VecSetFromOptions(tempVec);
 
   globalBuild->assembleConvectionMatrix();
@@ -107,10 +107,10 @@ void Solver::computeFirstStep() {
   KSPCreate(PETSC_COMM_WORLD, &stp1Solver);
   KSPSetType(stp1Solver, KSPGMRES);
   KSPSetOperators(stp1Solver, tempMat, tempMat);
-  KSPSetInitialGuessNonzero(stp1Solver, PETSC_TRUE);
+  // KSPSetInitialGuessNonzero(stp1Solver, PETSC_TRUE);
 
   KSPGetPC(stp1Solver, &preConditioner);
-  PCSetType(preConditioner, PCNONE);
+  PCSetType(preConditioner, PCKACZMARZ);
   KSPSetFromOptions(stp1Solver);
 
   KSPSolve(stp1Solver, tempVec, globalBuild->velocityVec);
@@ -129,8 +129,8 @@ void Solver::computeSecondStep() {
 
   VecCreate(PETSC_COMM_WORLD, &tempVec);
   VecCreate(PETSC_COMM_WORLD, &solVec);
-  VecSetSizes(tempVec, PETSC_DECIDE, msh->nNodes * 2);
-  VecSetSizes(solVec, PETSC_DECIDE, msh->nNodes * 2 + msh->nLinear);
+  VecSetSizes(tempVec, PETSC_DECIDE, msh->p2Size() * 2);
+  VecSetSizes(solVec, PETSC_DECIDE, msh->p2Size() * 2 + msh->p1Size());
 
   VecSetFromOptions(tempVec);
   VecSetFromOptions(solVec);
@@ -179,19 +179,20 @@ void Solver::interpolateValues(vector<double> *coord,
   gmsh::model::mesh::getBasisFunctions(9, *coord, "Lagrange", nComp,
                                        basisFuncsVel, nOrien);
 
-  for (int node = 0; node < (*nodeTags).size(); node++) {
-    PetscInt pi = msh->nodes[(*nodeTags)[node]].pid + msh->nNodes * 2;
-    PetscInt vxi = msh->nodes[(*nodeTags)[node]].id;
-    PetscInt vyi = vxi + msh->nNodes;
+  for (int n = 0; n < (*nodeTags).size(); n++) {
+    Node node = msh->getNode((*nodeTags)[n]);
+    PetscInt pi = node.pid + msh->p2Size() * 2;
+    PetscInt vxi = node.id;
+    PetscInt vyi = vxi + msh->p2Size();
     VecGetValues(*solVec, 1, &vxi, &nodeVx);
     VecGetValues(*solVec, 1, &vyi, &nodeVy);
     VecGetValues(*solVec, 1, &pi, &nodePre);
-    if (node < 3) {
-      pressure += basisFuncsPre[node] * nodePre;
+    if (n < 3) {
+      pressure += basisFuncsPre[n] * nodePre;
     }
 
-    xv += basisFuncsVel[node] * nodeVx;
-    yv += basisFuncsVel[node] * nodeVy;
+    xv += basisFuncsVel[n] * nodeVx;
+    yv += basisFuncsVel[n] * nodeVy;
   }
 
   (*solData)[0].push_back(pressure);
