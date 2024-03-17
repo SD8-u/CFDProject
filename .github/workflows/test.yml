@@ -27,6 +27,7 @@ jobs:
 
       - name: Compile and Run Tests
         run: |
+          mkdir build/
           cd build/
           cmake -DBUILD_MODULE=OFF -DBUILD_TESTS=ON ..
           cmake --build .

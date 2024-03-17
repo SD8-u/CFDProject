@@ -1,0 +1,22 @@
+# Apptainer for dependencies
+Bootstrap: docker
+From: ubuntu:22.04
+
+%post
+    apt update
+    apt -y install libgmsh-dev 
+    apt -y install petsc-dev 
+    apt -y install libgtest-dev 
+    apt -y install cmake 
+    apt -y install python3 python3-pip python3-venv
+
+%environment
+    export PATH=/app/venv/bin:$PATH
+
+%files
+    ./ /app
+
+%runscript
+   python3 -m venv /app/venv 
+   source /app/venv/bin/activate
+   pip install -r requirements.txt 
