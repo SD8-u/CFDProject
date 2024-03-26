@@ -7,6 +7,7 @@ option(BUILD_TESTS "Build tests" ON)
 set(CMAKE_CXX_COMPILER "/usr/bin/mpic++")
 set(CMAKE_CXX_STANDARD 14)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(pybind11_DIR venv/share/cmake/pybind11)
 
 # Set the directory containing the source files
 set(SRCDIR ${CMAKE_CURRENT_SOURCE_DIR}/src)

@@ -43,9 +43,9 @@ GlobalBuilder::GlobalBuilder(int dim, double dt, double visc, Mesh *msh) {
   VecSetSizes(velocityVec, PETSC_DECIDE, msh->p2Size() * 2);
   VecSetFromOptions(velocityVec);
 
-  VecCreate(PETSC_COMM_WORLD, &nodalVec);
-  VecSetSizes(nodalVec, PETSC_DECIDE, msh->p2Size() * 2 + msh->p1Size());
-  VecSetFromOptions(nodalVec);
+  VecCreate(PETSC_COMM_WORLD, &fullVec);
+  VecSetSizes(fullVec, PETSC_DECIDE, msh->p2Size() * 2 + msh->p1Size());
+  VecSetFromOptions(fullVec);
 }
 
 GlobalBuilder::~GlobalBuilder() {
@@ -54,7 +54,7 @@ GlobalBuilder::~GlobalBuilder() {
   MatDestroy(&globalConvMat);
   MatDestroy(&globalFullMat);
   VecDestroy(&velocityVec);
-  VecDestroy(&nodalVec);
+  VecDestroy(&fullVec);
 }
 
 void GlobalBuilder::localToGlobalMat(size_t elementTag, Mat *localMat,
@@ -91,7 +91,7 @@ void GlobalBuilder::localToGlobalMat(size_t elementTag, Mat *localMat,
 void GlobalBuilder::localToGlobalVec(bool full) {
   Vec *vec = &velocityVec;
   if (full) {
-    vec = &nodalVec;
+    vec = &fullVec;
   }
   int high, low;
   VecGetOwnershipRange(*vec, &low, &high);

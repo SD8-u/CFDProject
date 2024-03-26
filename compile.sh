@@ -6,4 +6,3 @@ cmake --build .
 cd ../scripts
 pip install .
 cd ..
-mpirun -n 1 build/runTests

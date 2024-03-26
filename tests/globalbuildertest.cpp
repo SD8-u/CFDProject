@@ -52,7 +52,7 @@ TEST_F(GlobalBuilderTest, GlobalBuilderVecSize) {
   PetscInt size;
   VecGetSize(build->velocityVec, &size);
   ASSERT_EQ(size, msh->p2Size() * 2);
-  VecGetSize(build->nodalVec, &size);
+  VecGetSize(build->fullVec, &size);
   ASSERT_EQ(size, msh->p2Size() * 2 + msh->p1Size());
 }
 
@@ -91,7 +91,7 @@ TEST_F(GlobalBuilderTest, GlobalBuilderNonZeroVec) {
       VecGetValues(build->velocityVec, 1, &i, &val);
       velVal += val;
     }
-    VecGetValues(build->nodalVec, 1, &i, &val);
+    VecGetValues(build->fullVec, 1, &i, &val);
     nodalVal += val;
   }
   ASSERT_NE(velVal, 0);

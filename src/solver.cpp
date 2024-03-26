@@ -39,9 +39,9 @@ Solver::Solver(Mesh *msh, double dt, double viscosity) {
 
   ISCreateGeneral(PETSC_COMM_WORLD, kVelSize, vecIndices, PETSC_COPY_VALUES,
                   &vecMapping);
-  VecScatterCreate(globalBuild->nodalVec, vecMapping, globalBuild->velocityVec,
+  VecScatterCreate(globalBuild->fullVec, vecMapping, globalBuild->velocityVec,
                    vecMapping, &vecScatter1);
-  VecScatterCreate(globalBuild->velocityVec, vecMapping, globalBuild->nodalVec,
+  VecScatterCreate(globalBuild->velocityVec, vecMapping, globalBuild->fullVec,
                    vecMapping, &vecScatter2);
 }
 
@@ -110,7 +110,7 @@ void Solver::computeFirstStep() {
   // KSPSetInitialGuessNonzero(stp1Solver, PETSC_TRUE);
 
   KSPGetPC(stp1Solver, &preConditioner);
-  PCSetType(preConditioner, PCKACZMARZ);
+  PCSetType(preConditioner, PCGAMG);
   KSPSetFromOptions(stp1Solver);
 
   KSPSolve(stp1Solver, tempVec, globalBuild->velocityVec);
@@ -145,11 +145,11 @@ void Solver::computeSecondStep() {
   updateVectors(&tempVec, &solVec, false);
 
   applyDirichletConditions(&globalBuild->globalFullMat, &solVec, true);
-  KSPSolve(stp2Solver, solVec, globalBuild->nodalVec);
+  KSPSolve(stp2Solver, solVec, globalBuild->fullVec);
 
-  applyDirichletConditions(&globalBuild->globalFullMat, &globalBuild->nodalVec,
+  applyDirichletConditions(&globalBuild->globalFullMat, &globalBuild->fullVec,
                            true);
-  updateVectors(&globalBuild->nodalVec, &globalBuild->velocityVec, true);
+  updateVectors(&globalBuild->fullVec, &globalBuild->velocityVec, true);
   VecDestroy(&solVec);
   VecDestroy(&tempVec);
 
@@ -207,10 +207,10 @@ vector<vector<double>> Solver::interpolateSolution(double resolution,
   VecScatter vs;
   vector<vector<double>> solData = vector<vector<double>>(5);
 
-  VecScatterCreateToZero(globalBuild->nodalVec, &vs, &solVec);
-  VecScatterBegin(vs, globalBuild->nodalVec, solVec, INSERT_VALUES,
+  VecScatterCreateToZero(globalBuild->fullVec, &vs, &solVec);
+  VecScatterBegin(vs, globalBuild->fullVec, solVec, INSERT_VALUES,
                   SCATTER_FORWARD);
-  VecScatterEnd(vs, globalBuild->nodalVec, solVec, INSERT_VALUES,
+  VecScatterEnd(vs, globalBuild->fullVec, solVec, INSERT_VALUES,
                 SCATTER_FORWARD);
 
   if (rank != 0) {

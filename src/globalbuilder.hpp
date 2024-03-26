@@ -25,7 +25,7 @@ class GlobalBuilder {
                         bool final);
 
  public:
-  Vec nodalVec;
+  Vec fullVec;
   Vec velocityVec;
   Mat globalMassMat;
   Mat globalViscMat;
