@@ -1,5 +1,6 @@
 #include "localbuilder.hpp"
 
+// Destroy sets of matrices
 void cleanUp(vector<Mat> matrices) {
   for (Mat m : matrices) {
     MatDestroy(&m);
@@ -7,6 +8,7 @@ void cleanUp(vector<Mat> matrices) {
 }
 
 void LocalBuilder::setUp() {
+  // Initialise vector sets
   inverseJacobian = vector<Mat>(6);
   basisGradMats = vector<Mat>(6);
   basisMats = vector<Mat>(6);
@@ -18,6 +20,7 @@ void LocalBuilder::setUp() {
   int nComponents;
   int nOrientations;
 
+  // Initialise memory for matrices
   for (int m = 0; m < 6; m++) {
     MatCreate(PETSC_COMM_SELF, &inverseJacobian[m]);
     MatSetSizes(inverseJacobian[m], PETSC_DECIDE, PETSC_DECIDE, 2, 2);
@@ -35,6 +38,7 @@ void LocalBuilder::setUp() {
     MatSetUp(basisMats[m]);
   }
 
+  // Obtain basis functions from Gmsh for provided gauss points
   gmsh::model::mesh::getBasisFunctions(9, gaussPoints, "Lagrange", nComponents,
                                        basisFuncs, nOrientations);
   gmsh::model::mesh::getBasisFunctions(2, gaussPoints, "Lagrange", nComponents,
@@ -45,6 +49,7 @@ void LocalBuilder::setUp() {
   buildBasisMatrix();
 }
 
+// Constructor for local convection matrices
 LocalBuilder::LocalBuilder() {
   this->conv = true;
   setUp();
@@ -54,12 +59,15 @@ LocalBuilder::LocalBuilder() {
   MatSetUp(localConvMat);
 }
 
+// Constructor for local unchanged matrices
 LocalBuilder::LocalBuilder(double dt, double viscosity) {
   this->dt = dt;
   this->viscosity = viscosity;
   this->conv = false;
 
   setUp();
+
+  // Initialise memory for local matrices
   MatCreate(PETSC_COMM_SELF, &localMassMat);
   MatSetSizes(localMassMat, PETSC_DECIDE, PETSC_DECIDE, 12, 12);
   MatSetFromOptions(localMassMat);
@@ -78,6 +86,7 @@ LocalBuilder::LocalBuilder(double dt, double viscosity) {
   MatSetUp(localFullMat);
 }
 
+// Destroy LocalBuilder
 LocalBuilder::~LocalBuilder() {
   if (!conv) {
     MatDestroy(&localGradMat);
@@ -92,9 +101,12 @@ LocalBuilder::~LocalBuilder() {
   cleanUp(basisGradMats);
 }
 
+// Build matrices containing basis functions
 void LocalBuilder::buildBasisMatrix() {
   int m = 0;
+  // Add a matrix for each integration point
   for (int point = 0; point < basisFuncs.size(); point += 6) {
+    // Construct each matrix with evaluation of basis at Gauss points
     for (int i = 0; i < 12; i++) {
       for (int j = 0; j < 2; j++) {
         if (j == 0 && i < 6) {
@@ -160,7 +172,7 @@ void LocalBuilder::buildBasisGradMatrix() {
     MatAssemblyEnd(temp, MAT_FINAL_ASSEMBLY);
 
     // Perform conversion from local coordinates to physical via inverse
-    // jacobian
+    // Jacobian
     MatDestroy(&basisGradMats[m]);
     MatMatMult(inverseJacobian[m], temp, MAT_INITIAL_MATRIX, PETSC_DEFAULT,
                &basisGradMats[m]);
@@ -175,7 +187,7 @@ void LocalBuilder::buildBasisGradMatrix() {
 void LocalBuilder::computeMassMatrix() {
   MatZeroEntries(localMassMat);
 
-  // Enumerate the matrix
+  // Compute each entry for mass matrix (product of basis functions)
   for (int i = 0; i < 12; i++) {
     for (int j = 0; j < 12; j++) {
       PetscScalar massVal = 0.0;
@@ -184,8 +196,7 @@ void LocalBuilder::computeMassMatrix() {
       int offsetj = (j > 5) ? 6 : 0;
 
       if (j < 6 && i < 6 || j > 5 && i > 5) {
-        // Approximate integration using gauss points over the products of basis
-        // functions
+        // Gauss quadrature (integration)
         for (int gp = 0; gp < 36; gp += 6) {
           massVal += basisFuncs[(i - offseti) + gp] *
                      basisFuncs[(j - offsetj) + gp] * gaussWeights[w] *
@@ -206,6 +217,7 @@ void LocalBuilder::computeViscosityMatrix() {
   vector<Mat> basisGradMatsT = vector<Mat>(basisGradMats.size());
   vector<Mat> viscMats = vector<Mat>(basisGradMats.size());
 
+  // Multiply basis function gradient matrices to obtain second order
   for (int m = 0; m < basisGradMats.size(); m++) {
     MatTranspose(basisGradMats[m], MAT_INITIAL_MATRIX, &basisGradMatsT[m]);
   }
@@ -215,12 +227,12 @@ void LocalBuilder::computeViscosityMatrix() {
                PETSC_DEFAULT, &viscMats[m]);
   }
 
-  // Enumerate the matrix
+  // Compute each entry for viscosity matrix
   for (int i = 0; i < 12; i++) {
     for (int j = 0; j < 12; j++) {
       PetscScalar viscVal = 0.0;
       int w = 0;
-      // Approximate integration using gauss points
+      // Gauss quadrature (integration)
       for (int gp = 0; gp < 36; gp += 6) {
         PetscScalar matVal;
         MatGetValue(viscMats[w], i, j, &matVal);
@@ -232,6 +244,7 @@ void LocalBuilder::computeViscosityMatrix() {
 
   MatAssemblyBegin(localViscMat, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(localViscMat, MAT_FINAL_ASSEMBLY);
+
   // Clean up matrices
   cleanUp(basisGradMatsT);
   cleanUp(viscMats);
@@ -252,6 +265,7 @@ void LocalBuilder::computeConvectionMatrix(PetscScalar *v) {
         MatGetValue(basisGradMats[w], 0, j, &gradXj);
         MatGetValue(basisGradMats[w], 1, j, &gradYj);
 
+        // Apply basis functions to current velocity
         double velU = 0, velV = 0;
         for (int i = 0; i < 12; i++) {
           if (i < 6) {
@@ -262,6 +276,7 @@ void LocalBuilder::computeConvectionMatrix(PetscScalar *v) {
         }
 
         PetscScalar matVal;
+        // Use skew symmetric convection form
         matVal = basisValj * (velU * gradXi + velV * gradYi) * 0.5 +
                  basisVali * (velU * gradXj + velV * gradYj);
         convVal += (matVal * gaussWeights[w] * jdets[w++]);
@@ -274,11 +289,14 @@ void LocalBuilder::computeConvectionMatrix(PetscScalar *v) {
 
 void LocalBuilder::computeGradientMatrix() {
   MatZeroEntries(localGradMat);
+
+  // Compute each entry for gradient operator
   for (int i = 0; i < 3; i++) {
     for (int j = 0; j < 12; j++) {
       int w = 0;
       PetscScalar gradVal = 0.0;
       int x = (j > 5);
+      // Gauss quadrature (integration)
       for (int gp = 0; gp < 18; gp += 3) {
         PetscScalar matVal = 0.0;
         MatGetValue(basisGradMats[w], x, j, &matVal);
@@ -293,6 +311,7 @@ void LocalBuilder::computeGradientMatrix() {
   MatAssemblyEnd(localGradMat, MAT_FINAL_ASSEMBLY);
 }
 
+// Compute matrix for pressure and final velocity
 void LocalBuilder::computeFinalMatrix() {
   MatZeroEntries(localFullMat);
   Mat localGradTMat;
@@ -336,29 +355,38 @@ void LocalBuilder::computeFinalMatrix() {
   MatDestroy(&localGradTMat);
 }
 
+// Assemble local unchanged matrices
 void LocalBuilder::assembleMatrices(size_t elementTag) {
   this->elementTag = elementTag;
   vector<double> coords;
 
   gmsh::model::mesh::getJacobian(elementTag, gaussPoints, j, jdets, coords);
 
+  // Inverse Jacobian matrix and build basis function gradient matrix
   buildInverseJacobian();
   buildBasisGradMatrix();
 
+  // Compute all local matrices
   computeMassMatrix();
   computeViscosityMatrix();
   computeGradientMatrix();
   computeFinalMatrix();
 }
 
+// Assemble local convection matrix (changes on each timestep)
 void LocalBuilder::assembleConvectionMatrix(size_t elementTag,
                                             Vec *velocityVec) {
+  // Obtain Jacobian from Gmsh using the elements tag
   this->elementTag = elementTag;
   vector<double> coords;
   gmsh::model::mesh::getJacobian(elementTag, gaussPoints, j, jdets, coords);
+
+  // Inverse Jacobian matrix and build basis function gradient matrix for
+  // convection term
   buildInverseJacobian();
   MatZeroEntries(localConvMat);
   buildBasisGradMatrix();
+
   PetscScalar v[12] = {0};
   for (int a = 0; a < 12; a++) {
     VecGetValues(*velocityVec, 1, &a, &v[a]);

@@ -50,7 +50,7 @@ TEST_F(GlobalBuilderTest, GlobalBuilderConvSize) {
 TEST_F(GlobalBuilderTest, GlobalBuilderVecSize) {
   build->assembleVectors();
   PetscInt size;
-  VecGetSize(build->velocityVec, &size);
+  VecGetSize(build->currVelVec, &size);
   ASSERT_EQ(size, msh->p2Size() * 2);
   VecGetSize(build->fullVec, &size);
   ASSERT_EQ(size, msh->p2Size() * 2 + msh->p1Size());
@@ -88,7 +88,7 @@ TEST_F(GlobalBuilderTest, GlobalBuilderNonZeroVec) {
   for (int i = 0; i < msh->p2Size() * 2 + msh->p1Size(); i++) {
     PetscScalar val;
     if (i < msh->p2Size() * 2) {
-      VecGetValues(build->velocityVec, 1, &i, &val);
+      VecGetValues(build->currVelVec, 1, &i, &val);
       velVal += val;
     }
     VecGetValues(build->fullVec, 1, &i, &val);

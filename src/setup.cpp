@@ -22,9 +22,9 @@ pybind11::tuple computeFlow(int refinement, int steps, double vel, double dt,
   double start = MPI_Wtime();
   Mesh *msh = new Mesh("geometry/temp.msh", vel);
   Solver *solver = new Solver(msh, dt, visc);
-  solver->computeTimeStep(steps);
+  solver->computeTimeSteps(steps);
   double stop = MPI_Wtime() - start;
-  vector<vector<double>> solData = solver->interpolateSolution(0.02, rank);
+  vector<vector<double>> solData = solver->interpolateSolution(0.005, rank);
 
   if (rank == 0) {
     pybind11::array_t<double> np_X(solData[3].size(), solData[3].data());
@@ -83,7 +83,7 @@ void computeFlowC(int refinement, int steps, double vel, double dt,
   Mesh *msh = new Mesh("geometry/temp.msh", vel);
   Solver *solver = new Solver(msh, dt, visc);
 
-  solver->computeTimeStep(steps);
+  solver->computeTimeSteps(steps);
   double stop = MPI_Wtime() - start;
   vector<vector<double>> solData = solver->interpolateSolution(0.02, rank);
 

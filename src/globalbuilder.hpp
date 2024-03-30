@@ -18,6 +18,8 @@ class GlobalBuilder {
 
   void getDomain();
   void constructVectorMapping();
+  void initialiseMats();
+  void initialiseVecs();
 
   void localToGlobalVec(bool full);
   void globalToLocalVec(size_t elementTag, Vec *localVec);
@@ -26,7 +28,7 @@ class GlobalBuilder {
 
  public:
   Vec fullVec;
-  Vec velocityVec;
+  Vec currVelVec;
   Mat globalMassMat;
   Mat globalViscMat;
   Mat globalConvMat;

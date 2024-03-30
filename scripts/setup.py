@@ -4,6 +4,7 @@ import os
 
 base_dir = os.path.abspath(os.path.dirname("../src"))
 
+#Indicate sources and external libraries
 ext_modules = [
     Pybind11Extension(
         'cfd',
@@ -15,6 +16,7 @@ ext_modules = [
     ),
 ]
 
+#Setup for CFD python module
 setup(
     name="cfd",
     ext_modules=ext_modules,

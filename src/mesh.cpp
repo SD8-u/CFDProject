@@ -15,18 +15,20 @@ void Mesh::generateMesh(string filePath, int refinement) {
   gmsh::write("geometry/temp.msh");
 }
 
+// Retrieve nodes from Gmsh
 void Mesh::getNodes(int* nId, vector<size_t> nodeTags,
                     vector<double> nodeCoords, double boundaryVel,
                     bool boundary, bool inlet) {
-  // Retrieve nodes
+  // Enumerate over given nodes
   for (int node = 0; node < nodeCoords.size() / 3; node++) {
     if (nodes.find(nodeTags[node]) == nodes.end() || inlet) {
+      // Add to Dirichlet indices if part of the boundary
       if (boundary || inlet) {
         dirichletIds.push_back(*nId);
         dirichletIds.push_back(*nId + nP2);
       }
       nodeIds[*nId] = nodeTags[node];
-
+      // Initialise node struct and add to set of nodes
       nodes[nodeTags[node]] = Node{(*nId)++,
                                    -1,
                                    boundary,
