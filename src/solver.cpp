@@ -69,6 +69,7 @@ void Solver::applyDirichletConditions(Mat *m, Vec *v, bool expl) {
   VecGetOwnershipRange(*v, &low, &high);
   for (int i = 0; i < msh->p2Size(); i++) {
     Node n = msh->getNode(i);
+    // Assign fixed value if node is boundary/inlet + processor owns element
     if (n.boundary || n.inlet) {
       if (i >= low && i < high) {
         VecSetValue(*v, i, n.velocity[0], INSERT_VALUES);
@@ -89,23 +90,33 @@ void Solver::applyDirichletConditions(Mat *m, Vec *v, bool expl) {
   MatAssemblyEnd(*m, MAT_FINAL_ASSEMBLY);
 }
 
-// Assemble matrix and RHS for Crank Nicolson time stepping
-void Solver::crankNicolson(Mat *tempMat, Vec *tempVec) {
+// Assemble matrix and RHS for BDF2 time stepping
+void Solver::bdf2(Mat *tempMat, Vec *tempVec, bool euler) {
   MatConvert(globalBuild->globalMassMat, MATSAME, MAT_INITIAL_MATRIX, tempMat);
-  // Subtract half viscous + convection terms from right hand side
-  MatAXPY(*tempMat, -1 / 2, globalBuild->globalViscMat,
-          DIFFERENT_NONZERO_PATTERN);
-  MatAXPY(*tempMat, -1 / 2, globalBuild->globalConvMat,
-          DIFFERENT_NONZERO_PATTERN);
 
-  MatMult(*tempMat, globalBuild->currVelVec, *tempVec);
-  // Reapply viscous and convection terms to system of equations
+  if (euler) {
+    // Use forward euler for the first time step
+    MatMult(*tempMat, globalBuild->currVelVec, *tempVec);
+  } else {
+    // Use prev velocity field to compute RHS for BDF2
+    Vec tempVec1;
+    VecDuplicate(*tempVec, &tempVec1);
+    MatScale(*tempMat, 2.0);
+    MatMult(*tempMat, globalBuild->currVelVec, *tempVec);
+    MatScale(*tempMat, 1 / 4.0);
+    MatMult(*tempMat, globalBuild->prevVelVec, tempVec1);
+    VecAXPY(*tempVec, -1.0, tempVec1);
+    VecDestroy(&tempVec1);
+    MatScale(*tempMat, 3);
+  }
+
+  // Add global and viscous terms to left hand side
   MatAXPY(*tempMat, 1.0, globalBuild->globalViscMat, DIFFERENT_NONZERO_PATTERN);
   MatAXPY(*tempMat, 1.0, globalBuild->globalConvMat, DIFFERENT_NONZERO_PATTERN);
 }
 
 // Compute intermediate velocity in Chorin-Temam
-void Solver::computeFirstStep() {
+void Solver::computeFirstStep(bool euler) {
   Mat tempMat;
   Vec tempVec;
   PC preConditioner;
@@ -116,7 +127,7 @@ void Solver::computeFirstStep() {
 
   // Assemble system
   globalBuild->assembleConvectionMatrix();
-  crankNicolson(&tempMat, &tempVec);
+  bdf2(&tempMat, &tempVec, euler);
 
   // Impose Dirichlet Conditions
   applyDirichletConditions(&tempMat, &tempVec, false);
@@ -131,7 +142,6 @@ void Solver::computeFirstStep() {
   KSPSetFromOptions(stp1Solver);
 
   KSPSolve(stp1Solver, tempVec, globalBuild->currVelVec);
-  applyDirichletConditions(&tempMat, &globalBuild->currVelVec, true);
 
   // Cleanup
   VecDestroy(&tempVec);
@@ -156,12 +166,11 @@ void Solver::computeSecondStep() {
   // Compute RHS of second linear system
   MatMult(globalBuild->globalMassMat, globalBuild->currVelVec, tempVec);
   updateVectors(&tempVec, &solVec, false);
+  updateVectors(&globalBuild->fullVec, &globalBuild->prevVelVec, true);
 
   // Apply Dirichlet conditions and solve the system
   applyDirichletConditions(&globalBuild->globalFullMat, &solVec, true);
   KSPSolve(stp2Solver, solVec, globalBuild->fullVec);
-  applyDirichletConditions(&globalBuild->globalFullMat, &globalBuild->fullVec,
-                           true);
 
   // Update the velocity vector
   updateVectors(&globalBuild->fullVec, &globalBuild->currVelVec, true);
@@ -177,10 +186,12 @@ void Solver::computeSecondStep() {
 
 // Perform time marching for transient simulation
 void Solver::computeTimeSteps(int steps) {
+  bool euler = true;
   for (int x = 0; x < steps; x++) {
-    this->computeFirstStep();
+    this->computeFirstStep(euler);
     this->computeSecondStep();
     cout << "Step: " << x << "\n";
+    euler = false;
   }
 }
 

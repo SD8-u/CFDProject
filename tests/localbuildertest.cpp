@@ -9,11 +9,13 @@ class LocalBuilderTest : public testing::Test {
 
   static void SetUpTestSuite() { ::testing::internal::CaptureStdout(); }
 
+  // Initialise mesh for Local Builder
   void SetUp() override {
     Mesh::generateMesh("geometry/lidcavity.geo", 4);
     msh = new Mesh("geometry/temp.msh", 1);
   }
 
+  // Clean up test objects
   void TearDown() {
     delete (msh);
     delete (build);
@@ -22,6 +24,8 @@ class LocalBuilderTest : public testing::Test {
 
   static void TearDownTestSuite() { ::testing::internal::GetCapturedStdout(); }
 };
+
+// Local Builder Unit Tests
 
 TEST_F(LocalBuilderTest, LocalBuilderMatSize) {
   build = new LocalBuilder(0.01, 1);

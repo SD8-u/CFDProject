@@ -3,8 +3,8 @@ import cfd
 import plot
 from mpi4py import MPI
 
-comm = MPI.Comm.Get_parent()
-#comm = MPI.COMM_WORLD
+#comm = MPI.Comm.Get_parent()
+comm = MPI.COMM_WORLD
 
 #Start CFD module and compute flow for given parameters with MPI
 cfd.startUp()

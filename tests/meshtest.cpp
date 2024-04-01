@@ -6,12 +6,14 @@ class MeshTest : public testing::Test {
  protected:
   Mesh *msh;
 
+  // Initialise petsc and gmsh for Mesh
   static void SetUpTestSuite() {
     gmsh::initialize();
     PetscInitializeNoArguments();
     ::testing::internal::CaptureStdout();
   }
 
+  // Clean up test objects
   void TearDown() {
     delete (msh);
     gmsh::clear();
@@ -19,6 +21,8 @@ class MeshTest : public testing::Test {
 
   static void TearDownTestSuite() { ::testing::internal::GetCapturedStdout(); }
 };
+
+// Mesh Unit Tests
 
 TEST_F(MeshTest, MeshElementSize1) {
   Mesh::generateMesh("geometry/lidcavity.geo", 1);

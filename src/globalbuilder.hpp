@@ -29,6 +29,7 @@ class GlobalBuilder {
  public:
   Vec fullVec;
   Vec currVelVec;
+  Vec prevVelVec;
   Mat globalMassMat;
   Mat globalViscMat;
   Mat globalConvMat;

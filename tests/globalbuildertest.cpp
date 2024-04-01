@@ -9,12 +9,14 @@ class GlobalBuilderTest : public testing::Test {
 
   static void SetUpTestSuite() { ::testing::internal::CaptureStdout(); }
 
+  // Initialise mesh and Global Builder
   void SetUp() override {
     Mesh::generateMesh("geometry/lidcavity.geo", 4);
     msh = new Mesh("geometry/temp.msh", 1);
     build = new GlobalBuilder(2, 0.001, 0.1, msh);
   }
 
+  // Clean up test objects
   void TearDown() {
     delete (msh);
     delete (build);
@@ -23,6 +25,8 @@ class GlobalBuilderTest : public testing::Test {
 
   static void TearDownTestSuite() { ::testing::internal::GetCapturedStdout(); }
 };
+
+// Global Builder Unit Tests
 
 TEST_F(GlobalBuilderTest, GlobalBuilderMatSize) {
   build->assembleMatrices();
@@ -54,6 +58,22 @@ TEST_F(GlobalBuilderTest, GlobalBuilderVecSize) {
   ASSERT_EQ(size, msh->p2Size() * 2);
   VecGetSize(build->fullVec, &size);
   ASSERT_EQ(size, msh->p2Size() * 2 + msh->p1Size());
+}
+
+TEST_F(GlobalBuilderTest, GlobalBuilderVecLid) {
+  build->assembleVectors();
+  PetscReal max;
+  VecMax(build->currVelVec, NULL, &max);
+  ASSERT_EQ(max, 1);
+  ASSERT_EQ(max, 1);
+}
+
+TEST_F(GlobalBuilderTest, GlobalBuilderVecWall) {
+  build->assembleVectors();
+  PetscReal min;
+  VecMin(build->currVelVec, NULL, &min);
+  ASSERT_EQ(min, 0);
+  ASSERT_EQ(min, 0);
 }
 
 TEST_F(GlobalBuilderTest, GlobalBuilderNonZeroMat) {

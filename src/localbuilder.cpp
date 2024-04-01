@@ -189,22 +189,16 @@ void LocalBuilder::computeMassMatrix() {
 
   // Compute each entry for mass matrix (product of basis functions)
   for (int i = 0; i < 12; i++) {
+    PetscScalar massVal = 0.0;
     for (int j = 0; j < 12; j++) {
-      PetscScalar massVal = 0.0;
       int w = 0;
-      int offseti = (i > 5) ? 6 : 0;
-      int offsetj = (j > 5) ? 6 : 0;
-
-      if (j < 6 && i < 6 || j > 5 && i > 5) {
-        // Gauss quadrature (integration)
-        for (int gp = 0; gp < 36; gp += 6) {
-          massVal += basisFuncs[(i - offseti) + gp] *
-                     basisFuncs[(j - offsetj) + gp] * gaussWeights[w] *
-                     jdets[w++];
-        }
+      //   Gauss quadrature (integration)
+      for (int gp = 0; gp < 36; gp += 6) {
+        massVal += basisFuncs[(i % 6) + gp] * basisFuncs[(j % 6) + gp] *
+                   gaussWeights[w] * jdets[w++];
       }
-      MatSetValue(localMassMat, i, j, massVal, INSERT_VALUES);
     }
+    MatSetValue(localMassMat, i, i, massVal, INSERT_VALUES);
   }
 
   MatAssemblyBegin(localMassMat, MAT_FINAL_ASSEMBLY);
@@ -213,18 +207,12 @@ void LocalBuilder::computeMassMatrix() {
 
 void LocalBuilder::computeViscosityMatrix() {
   MatZeroEntries(localViscMat);
-
-  vector<Mat> basisGradMatsT = vector<Mat>(basisGradMats.size());
   vector<Mat> viscMats = vector<Mat>(basisGradMats.size());
 
   // Multiply basis function gradient matrices to obtain second order
   for (int m = 0; m < basisGradMats.size(); m++) {
-    MatTranspose(basisGradMats[m], MAT_INITIAL_MATRIX, &basisGradMatsT[m]);
-  }
-
-  for (int m = 0; m < basisGradMats.size(); m++) {
-    MatMatMult(basisGradMatsT[m], basisGradMats[m], MAT_INITIAL_MATRIX,
-               PETSC_DEFAULT, &viscMats[m]);
+    MatTransposeMatMult(basisGradMats[m], basisGradMats[m], MAT_INITIAL_MATRIX,
+                        PETSC_DEFAULT, &viscMats[m]);
   }
 
   // Compute each entry for viscosity matrix
@@ -246,7 +234,6 @@ void LocalBuilder::computeViscosityMatrix() {
   MatAssemblyEnd(localViscMat, MAT_FINAL_ASSEMBLY);
 
   // Clean up matrices
-  cleanUp(basisGradMatsT);
   cleanUp(viscMats);
 }
 
@@ -267,18 +254,17 @@ void LocalBuilder::computeConvectionMatrix(PetscScalar *v) {
 
         // Apply basis functions to current velocity
         double velU = 0, velV = 0;
-        for (int i = 0; i < 12; i++) {
-          if (i < 6) {
-            velU += v[i] * basisFuncs[gp + i % 6];
+        for (int x = 0; x < 12; x++) {
+          if (x < 6) {
+            velU += v[x] * basisFuncs[gp + x % 6];
           } else {
-            velV += v[i] * basisFuncs[gp + i % 6];
+            velV += v[x] * basisFuncs[gp + x % 6];
           }
         }
 
         PetscScalar matVal;
-        // Use skew symmetric convection form
-        matVal = basisValj * (velU * gradXi + velV * gradYi) * 0.5 +
-                 basisVali * (velU * gradXj + velV * gradYj);
+        // Add convection term at current gauss point
+        matVal = basisVali * (velU * gradXj + velV * gradYj);
         convVal += (matVal * gaussWeights[w] * jdets[w++]);
       }
 
@@ -314,16 +300,11 @@ void LocalBuilder::computeGradientMatrix() {
 // Compute matrix for pressure and final velocity
 void LocalBuilder::computeFinalMatrix() {
   MatZeroEntries(localFullMat);
-  Mat localGradTMat;
-
-  MatTranspose(localGradMat, MAT_INITIAL_MATRIX, &localGradTMat);
 
   for (int i = 0; i < 12; i++) {
     for (int j = 0; j < 12; j++) {
       PetscScalar massVal;
-      PetscScalar viscVal;
       MatGetValue(localMassMat, i, j, &massVal);
-      MatGetValue(localViscMat, i, j, &viscVal);
       MatSetValue(localFullMat, i, j, massVal * dt, INSERT_VALUES);
     }
   }
@@ -339,7 +320,7 @@ void LocalBuilder::computeFinalMatrix() {
   for (int i = 12; i < 15; i++) {
     for (int j = 0; j < 12; j++) {
       PetscScalar matVal;
-      MatGetValue(localGradTMat, i - 12, j, &matVal);
+      MatGetValue(localGradMat, j, i - 12, &matVal);
       MatSetValue(localFullMat, i, j, matVal, INSERT_VALUES);
     }
   }
@@ -352,7 +333,6 @@ void LocalBuilder::computeFinalMatrix() {
 
   MatAssemblyBegin(localFullMat, MAT_FINAL_ASSEMBLY);
   MatAssemblyEnd(localFullMat, MAT_FINAL_ASSEMBLY);
-  MatDestroy(&localGradTMat);
 }
 
 // Assemble local unchanged matrices

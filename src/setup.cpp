@@ -1,5 +1,6 @@
 #include "setup.hpp"
 
+// Perform flow simulation given parameters
 pybind11::tuple computeFlow(int refinement, int steps, double vel, double dt,
                             double visc, string file) {
   int size;
@@ -15,17 +16,25 @@ pybind11::tuple computeFlow(int refinement, int steps, double vel, double dt,
   result[3] = NULL;
   result[4] = NULL;
 
+  // Generate mesh on first processor
   if (rank == 0) Mesh::generateMesh(file, refinement);
 
+  // Synchronise to ensure all processors can access mesh
   MPI_Barrier(MPI_COMM_WORLD);
 
   double start = MPI_Wtime();
+
+  // Initialise mesh/solver and execute solver for each time step
   Mesh *msh = new Mesh("geometry/temp.msh", vel);
   Solver *solver = new Solver(msh, dt, visc);
   solver->computeTimeSteps(steps);
-  double stop = MPI_Wtime() - start;
-  vector<vector<double>> solData = solver->interpolateSolution(0.005, rank);
 
+  double stop = MPI_Wtime() - start;
+
+  // Interpolate solution for visualisation
+  vector<vector<double>> solData = solver->interpolateSolution(0.01, rank);
+
+  // Collect results to visualise on first processor
   if (rank == 0) {
     pybind11::array_t<double> np_X(solData[3].size(), solData[3].data());
     pybind11::array_t<double> np_Y(solData[4].size(), solData[4].data());
@@ -40,23 +49,28 @@ pybind11::tuple computeFlow(int refinement, int steps, double vel, double dt,
     result[4] = np_P;
   }
 
+  // Clean up
   delete (solver);
   delete (msh);
   gmsh::clear();
+
   cout << "Time: " << stop << "\n";
   return result;
 }
 
+// Initialise resources associated with gmsh and petsc
 void startUp() {
   gmsh::initialize();
   PetscInitializeNoArguments();
 }
 
+// Clean up resources associated with gmsh and petsc
 void cleanUp() {
   gmsh::finalize();
   PetscFinalize();
 }
 
+// Setup pybind11 module for CFD flow
 PYBIND11_MODULE(cfd, m) {
   m.doc() = "computes flow given (refinement, steps, velocity, dt, and visc)";
   m.def("computeFlow", &computeFlow, "A function to compute flow");
@@ -64,38 +78,4 @@ PYBIND11_MODULE(cfd, m) {
   m.def("cleanUp", &cleanUp, "A function to free resources");
 }
 
-void computeFlowC(int refinement, int steps, double vel, double dt,
-                  double visc) {
-  PetscInitializeNoArguments();
-  gmsh::initialize();
-
-  int size;
-  MPI_Comm_size(MPI_COMM_WORLD, &size);
-  int rank;
-  MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-  printf("Processor Rank %d out of %d\n", rank, size);
-
-  if (rank == 0) Mesh::generateMesh("geometry/lidcavity.geo", refinement);
-
-  MPI_Barrier(MPI_COMM_WORLD);
-
-  double start = MPI_Wtime();
-  Mesh *msh = new Mesh("geometry/temp.msh", vel);
-  Solver *solver = new Solver(msh, dt, visc);
-
-  solver->computeTimeSteps(steps);
-  double stop = MPI_Wtime() - start;
-  vector<vector<double>> solData = solver->interpolateSolution(0.02, rank);
-
-  delete (solver);
-  delete (msh);
-
-  cout << "Time: " << stop << "\n";
-  gmsh::finalize();
-  PetscFinalize();
-}
-
-int main(int argc, char **argv) {
-  computeFlowC(5, 1, 100, 0.001, 10);
-  return 0;
-}
+int main(int argc, char **argv) { return 0; }

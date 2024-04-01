@@ -1,4 +1,4 @@
-// Gmsh project created on Wed Mar 13 18:40:41 2024
+//Flow around a cylinder geometry
 //+
 Point(1) = {-1, 0, 0, 1.0};
 //+

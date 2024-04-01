@@ -1,11 +1,11 @@
+//Anyeursym geometry
 //Specify mesh generation properties
 Mesh.Algorithm = 5; //Delaunay Triangulation
 
-//Define simple square boundary
 Point(1) = {0, 0, 0, 1.0};
 Point(2) = {3, 0, 0, 1.0};
-Point(3) = {3, 0.2, 0, 1.0};
-Point(4) = {0, 0.2, 0, 1.0};
+Point(3) = {3, 0.25, 0, 1.0};
+Point(4) = {0, 0.25, 0, 1.0};
 
 Point(7) = {2.5, 0, 0, 1.0};
 Point(8) = {2, 0, 0, 1.0};
@@ -27,10 +27,10 @@ Plane Surface(6) = {5};
 Physical Line("Boundary") = {1, 11, 12, 13, 3};
 
 //Tag inlet
-Physical Line("Inlet") = {4};
+Physical Line("Inlet") = {2};
 
 //Tag outlet
-Physical Line("Outlet") = {2};
+Physical Line("Outlet") = {4};
 
 // Tag fluid domain inside of square
 Physical Surface("FluidDomain") = {6};

@@ -41,6 +41,7 @@ void GlobalBuilder::initialiseVecs() {
   VecCreate(PETSC_COMM_WORLD, &currVelVec);
   VecSetSizes(currVelVec, PETSC_DECIDE, msh->p2Size() * 2);
   VecSetFromOptions(currVelVec);
+  VecDuplicate(currVelVec, &prevVelVec);
 
   VecCreate(PETSC_COMM_WORLD, &fullVec);
   VecSetSizes(fullVec, PETSC_DECIDE, msh->p2Size() * 2 + msh->p1Size());
