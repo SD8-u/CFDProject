@@ -5,6 +5,7 @@ import textwrap
 from mpi4py import MPI
 from PIL import Image
 from customtkinter import filedialog
+from CTkMessagebox import CTkMessagebox
 
 #Execute the simulation in parallel by initating the solver with MPI
 def call_parallel_solver(refinement, timesteps, velocity, dt, viscosity, filename):
@@ -37,8 +38,8 @@ class OptionFrame(customtkinter.CTkFrame):
         self.viscosity = customtkinter.CTkEntry(self, placeholder_text="Enter viscosity")
         self.refinementL = customtkinter.CTkLabel(self, text="Refinement:")
         self.refinement = customtkinter.CTkEntry(self, placeholder_text="Enter refinement")
-        self.dtL = customtkinter.CTkLabel(self, text="Dt:")
-        self.dt = customtkinter.CTkEntry(self, placeholder_text="Enter dt")
+        self.dtL = customtkinter.CTkLabel(self, text="Time step size:")
+        self.dt = customtkinter.CTkEntry(self, placeholder_text="Enter time step size")
         self.velocityL = customtkinter.CTkLabel(self, text="Velocity:")
         self.velocity = customtkinter.CTkEntry(self, placeholder_text="Enter velocity")
         self.file = customtkinter.CTkButton(self, text="Choose Geometry", command=self.file_explorer)
@@ -85,8 +86,12 @@ class App(customtkinter.CTk):
         #Initialise application UI
         super().__init__()
         customtkinter.set_appearance_mode("dark")
+        #Display warning message prior to opening UI
+        warning = CTkMessagebox(title="Warning", message="Solutions are merely an approximation - " + 
+                                " do not expect complete accuracy.", icon="warning")
+        warning.wait_window()
         self.title("CFD Solver")
-        self.geometry("1300x800")
+        self.geometry("1200x680")
         self.image = customtkinter.CTkImage(dark_image=Image.open("stream_plot.png"), size=(940, 680))
         self.label = customtkinter.CTkLabel(master=self, image=self.image, text='')
         self.label.grid(row=0, column=1, padx=20, pady=20, sticky="w")
